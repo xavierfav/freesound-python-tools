@@ -190,6 +190,13 @@ class Retriever(FancyURLopener):
         except:
             raise Exception(resp)
 
+def add_basic_fields_for_sound_list(params):
+    #if 'fields' in params.keys():
+    #    params.update({fields = params.fields + ""})
+    #print params
+    return params
+            
+            
 class FSRequest:
     """
     Makes requests to the freesound API. Should not be used directly.
@@ -201,6 +208,7 @@ class FSRequest:
         d = urllib.urlencode(data) if data else None
         headers = {'Authorization':client.header}
         req = Request(url,d,headers)
+        print req, url
         try:
             f = urlopen(req)
         except HTTPError as e:
@@ -307,6 +315,16 @@ class Sound(FreesoundObject):
             params['descriptors']=descriptors
         return FSRequest.request(uri, params,self.client,FreesoundObject)
 
+    def get_analysis_frames(self):
+        """
+        Get analysis frames.
+        >>> a = sound.get_analysis_frames()
+        >>> print(a.lowlevel.gfcc)
+        """
+        uri = self.analysis_frames
+        params = {}
+        return FSRequest.request(uri, params, self.client, FreesoundObject)
+        
     def get_similar(self):
         """
         Get similar sounds based on content-based descriptors.
@@ -345,8 +363,9 @@ class User(FreesoundObject):
         >>> u.get_sounds()
         """
         uri = URIS.uri(URIS.USER_SOUNDS,self.username)
-        return FSRequest.request(uri, {}, self.client, Pager)
-
+        return FSRequest.request(uri, add_basic_fields_for_sound_list({}), self.client, Pager)
+        # TODO : implement and use "add_basic_fields_for_sound_list()" in order to always get the previews and analysis frames
+    
     def get_packs(self):
         """
         Get user packs.
