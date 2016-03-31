@@ -1,26 +1,45 @@
 import copy
 import essentia
 import freesound
+import numpy as np
+import matplotlib.pyplot as plt
 c = freesound.FreesoundClient()
 c.set_token("a226905c14719e5bbfaa258cbcf135423b98035c","token") #put your id here...
 
+# Needed to remove non asci caracter in names
+def strip_non_ascii(string):
+    ''' Returns the string without non ASCII characters'''
+    stripped = (c for c in string if 0 < ord(c) < 127)
+    return ''.join(stripped)
+
+
+
+##########################################################################################################################################################
+
 # search for sounds with "wind" query and tag, duration 0 to 30sec
 # ask for analysis_frames in order to be ablet to use get_analysis_frames method
-results_pager = c.text_search(query="wind",filter="tag:wind duration:[0 TO 30.0]",sort="rating_desc",fields="id,name,previews,username,analysis_frames")
-page = copy.deepcopy(results_pager)
+results_pager = c.text_search(query="wind",filter="tag:wind duration:[0 TO 10.0]",sort="rating_desc",fields="id,name,previews,username,analysis_frames")
+results_pager_last = copy.deepcopy(results_pager)
 
 # recup all sounds in a list
 nbSound = results_pager.count
 numSound = 0
 sounds = [None]*nbSound
 
-# need to repeat this because of the request limitation...
+# 1st iteration
+for i in results_pager:
+    sounds[numSound] = copy.deepcopy(i)
+    numSound = numSound+1
+    print '\n' + str(numSound) + '/' + str(nbSound) + '\n' + str(i.name)
+        
+# next iteration
 while (numSound<nbSound):
-    for i in page:
+    results_pager = copy.deepcopy(results_pager_last.next_page())
+    for i in results_pager:
         sounds[numSound] = copy.deepcopy(i)
         numSound = numSound+1
-        print '\n' + str(numSound) + '/' + str(nbSound) + '\n' + str(i.name)
-    page = copy.deepcopy(results_pager.next_page())
+        print '\n' + str(numSound) + '/' + str(nbSound) + '\n' + str(strip_non_ascii(i.name))
+    results_pager_last = copy.deepcopy(results_pager)
     print ' \n CHANGE PAGE \n '
 
 
@@ -30,10 +49,16 @@ numSound = 0
 
 # again the limitation can stop the loop
 while (numSound<nbSound):
-    allMfcc[numSound] = essentia.array(sounds[numSound].get_analysis_frames().lowlevel.mfcc)
+    try:    
+        allMfcc[numSound] = essentia.array(sounds[numSound].get_analysis_frames().lowlevel.mfcc)
+    except ValueError:
+        print "Oops! JSON files not found !"
     numSound = numSound+1
     print '\n' + str(numSound) + '/' + str(nbSound) + '\n'
-    
+
+# remove None items
+allMfcc = [x for x in allMfcc if x is not None]
+nbSound = len(allMfcc)
     
 # save variables
 import pickle
@@ -126,7 +151,7 @@ plt.imshow(Z, interpolation='nearest',
            cmap=plt.cm.Paired,
            aspect='auto', origin='lower')
 
-plt.plot(reduced_data[:, 0], reduced_data[:, 1], 'k.', markersize=2)
+plt.plot(reduced_data[:, 0], reduced_data[:, 1], 'k.', markersize=4)
 # Plot the centroids as a white X
 centroids = kmeans.cluster_centers_
 plt.scatter(centroids[:, 0], centroids[:, 1],
