@@ -88,6 +88,16 @@ while (numSound<nbSound):
     print '\n' + str(numSound) + '/' + str(nbSound) + '\n'
     
 
+# load all analysis from json files
+files = os.listdir('./analysis/')
+nbSound = len(files)
+allAnalysisFrames = [None]*nbSound
+for numSound in range(nbSound):
+    with open('analysis/'+files[numSound]) as infile:
+        allAnalysisFrames[numSound] = json.load(infile)
+    print '\n' + str(numSound) + '/' + str(nbSound)
+
+    
 # remove None items
 allMfcc = [x for x in allMfcc if x is not None]
 nbSound = len(allMfcc)
