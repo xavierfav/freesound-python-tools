@@ -18,7 +18,7 @@ def strip_non_ascii(string):
 
 # search for sounds with "wind" query and tag, duration 0 to 30sec
 # ask for analysis_frames in order to be ablet to use get_analysis_frames method
-results_pager = c.text_search(query="wind",filter="tag:wind duration:[0 TO 10.0]",sort="rating_desc",fields="id,name,previews,username,analysis_frames")
+results_pager = c.text_search(query="wind",filter="tag:wind duration:[0 TO 30.0]",sort="rating_desc",fields="id,name,previews,username,analysis_frames")
 results_pager_last = copy.deepcopy(results_pager)
 
 # recup all sounds in a list
@@ -164,3 +164,29 @@ plt.ylim(y_min, y_max)
 plt.xticks(())
 plt.yticks(())
 plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+################### WORK IN PROGRESS
+# JSON DUMP
+def get_child_nodes(node_id):   
+    request = urllib2.Request(ROOT_URL + node_id)
+    response = json.loads(urllib2.urlopen(request).read())
+    nodes = []
+    for childnode in response['childNode']:
+        temp_obj = {}
+        temp_obj['id'] = childnode['id']
+        temp_obj['name'] = childnode['name']
+        temp_obj['children'] = get_child_nodes(temp_obj['id'])
+        nodes.append(temp_obj)
+    return nodes

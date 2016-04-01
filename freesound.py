@@ -154,6 +154,7 @@ class FreesoundObject:
     """
     def __init__(self,json_dict, client):
         self.client=client
+        self.json_dict = json_dict
         def replace_dashes(d):
             for k, v in d.items():
                 if "-" in k:
@@ -166,6 +167,9 @@ class FreesoundObject:
         for k, v in json_dict.items():
             if isinstance(v, dict):
                 self.__dict__[k] = FreesoundObject(v, client)
+                
+    def as_json(self):
+        return self.json_dict
 
 class FreesoundException(Exception):
     """
