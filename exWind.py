@@ -19,7 +19,7 @@ def strip_non_ascii(string):
 
 # search for sounds with "wind" query and tag, duration 0 to 30sec
 # ask for analysis_frames in order to be ablet to use get_analysis_frames method
-results_pager = c.text_search(query="wind",filter="tag:wind duration:[0 TO 30.0]",sort="rating_desc",fields="id,name,previews,username,analysis_frames")
+results_pager = c.text_search(query="wind",filter="tag:wind duration:[0 TO 30.0]",sort="rating_desc",fields="id,name,previews,username,analysis_frames",page_size=150)
 results_pager_last = copy.deepcopy(results_pager)
 
 # recup all sounds in a list
@@ -29,6 +29,7 @@ sounds = [None]*nbSound
 
 # 1st iteration
 for i in results_pager:
+    i.name = strip_non_ascii(i.name)
     sounds[numSound] = copy.deepcopy(i)
     numSound = numSound+1
     print '\n' + str(numSound) + '/' + str(nbSound) + '\n' + str(i.name)
@@ -37,9 +38,10 @@ for i in results_pager:
 while (numSound<nbSound):
     results_pager = copy.deepcopy(results_pager_last.next_page())
     for i in results_pager:
+        i.name = strip_non_ascii(i.name)
         sounds[numSound] = copy.deepcopy(i)
         numSound = numSound+1
-        print '\n' + str(numSound) + '/' + str(nbSound) + '\n' + str(strip_non_ascii(i.name))
+        print '\n' + str(numSound) + '/' + str(nbSound) + '\n' + str(i.name)
     results_pager_last = copy.deepcopy(results_pager)
     print ' \n CHANGE PAGE \n '
 
@@ -56,6 +58,35 @@ while (numSound<nbSound):
         print "Oops! JSON files not found !"
     numSound = numSound+1
     print '\n' + str(numSound) + '/' + str(nbSound) + '\n'
+
+    
+    
+# recup all analysis frames 
+allAnalysisFrames = [None]*nbSound
+numSound = 0
+while (numSound<nbSound):
+    try:    
+        allAnalysisFrames[numSound] = sounds[numSound].get_analysis_frames()
+    except ValueError:
+        print "Oops! JSON files not found !"
+    numSound = numSound+1
+    print '\n' + str(numSound) + '/' + str(nbSound) + '\n'
+
+    
+    
+# save all analysis frames in json files
+import os
+if not os.path.exists('analysis'):
+    os.makedirs('analysis')
+numSound = 0
+while (numSound<nbSound):
+    nameFile = 'analysis/' + str(sounds[numSound].id) + '.json'
+    if allAnalysisFrames[numSound]:
+        with open(nameFile, 'w') as outfile:
+            json.dump(allAnalysisFrames[numSound].as_json(), outfile)
+    numSound = numSound+1
+    print '\n' + str(numSound) + '/' + str(nbSound) + '\n'
+    
 
 # remove None items
 allMfcc = [x for x in allMfcc if x is not None]
