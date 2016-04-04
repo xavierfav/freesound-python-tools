@@ -1,3 +1,26 @@
+lib.py
+============
+
+A library over freesound.py that helps managing sounds and analysis
+
+The aim is to develop a tool that could help us using/analysing datas from freesound & local.
+
+Example usage:
+
+```
+import lib
+c = lib.Client() 
+
+```
+The Client from lib.py is also a FreesoundClient object, it has all the methods describe in freesound.py
+
+```
+results = c.text_search(query="dubstep",fields="id,name,previews")
+c.load_sounds(results)
+c.load_analysis()
+
+```
+
 freesound.py
 ============
 
@@ -9,18 +32,4 @@ The client automatically maps function arguments to http parameters of the API. 
 
 Note that POST resources are not supported. Downloading full quality sounds requires Oauth2 authentication (see http://freesound.org/docs/api/authentication.html). Oauth2 authentication is supported, but you are expected to implement the workflow.
 
-Example usage:
 
-```
-import freesound, sys,os
-
-c = freesound.FreesoundClient()
-c.set_token("<your_api_key>","token")
-
-results = c.text_search(query="dubstep",fields="id,name,previews")
-
-for sound in results:
-	sound.retrieve_preview(".",sound.name+".mp3")
-	print(sound.name)
-
-```
