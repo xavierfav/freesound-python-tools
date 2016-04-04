@@ -3,3 +3,4 @@ build
 *.bak
 *.pickle
 *api_key.txt
+/analysis
