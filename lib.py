@@ -7,10 +7,7 @@ This lib provides method for managing files and data with a local data storage
 """
 
 import copy
-import essentia
 import freesound
-import numpy as np
-import matplotlib.pyplot as plt
 import os
 import json
 
