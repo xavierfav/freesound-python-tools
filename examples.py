@@ -1,6 +1,6 @@
 import freesound
 c = freesound.FreesoundClient()
-c.set_token("a226905c14719e5bbfaa258cbcf135423b98035c","token")
+c.set_token("","token")
 
 # Get sound info example
 print "Sound info:"

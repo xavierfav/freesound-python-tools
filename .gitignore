@@ -2,3 +2,4 @@ build
 *.pyc
 *.bak
 *.pickle
+*api_key.txt

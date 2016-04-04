@@ -4,7 +4,7 @@ import freesound
 import numpy as np
 import matplotlib.pyplot as plt
 c = freesound.FreesoundClient()
-c.set_token("a226905c14719e5bbfaa258cbcf135423b98035c","token") #put your id here...
+c.set_token("","token") #put your id here...
 
 # Needed to remove non asci caracter in names
 def strip_non_ascii(string):
