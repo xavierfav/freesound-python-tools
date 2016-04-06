@@ -4,3 +4,4 @@ build
 *.pickle
 *api_key.txt
 /analysis
+/sounds
