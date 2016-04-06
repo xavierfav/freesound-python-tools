@@ -44,7 +44,7 @@ class Client(freesound.FreesoundClient):
         
         """
         
-        results_pager = self.text_search(fields="id,name,url,tags,description,type,filesize,bitrate,bitdepth,duration,samplerate,username,comments,num_comments,analysis_frames",page_size=150,**param)
+        results_pager = self.text_search(fields="id,name,url,tags,description,type,previews,filesize,bitrate,bitdepth,duration,samplerate,username,comments,num_comments,analysis_frames",page_size=150,**param)
         self.load_sounds(results_pager)
         
         
@@ -98,7 +98,7 @@ class Client(freesound.FreesoundClient):
         
         while (numSound<nbSound):
             nameFile = 'sounds/' + str(self.loaded_sounds[numSound].id) + '.json'
-            if self.loaded_sounds[numSound]:
+            if self.loaded_sounds[numSound] and not(os.path.isfile(nameFile)):
                 with open(nameFile, 'w') as outfile:
                     json.dump(self.loaded_sounds[numSound].as_dict(), outfile)
             numSound = numSound+1
@@ -147,13 +147,18 @@ class Client(freesound.FreesoundClient):
         Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading analysis')
         
         while (numSound<nbSound):
-            blockPrint()
-            try:    
-                self.loaded_analysis[numSound] = self.loaded_sounds[numSound].get_analysis_frames()
-            except ValueError:
-                #print "Oops! JSON files not found !"
-                print ""
-            enablePrint()
+            nameFile = 'analysis/' + str(self.loaded_sounds[numSound].id) + '.json'
+            if os.path.isfile(nameFile):    # is analysis in local ?
+                with open(nameFile) as infile:
+                    self.loaded_analysis[numSound] = freesound.FreesoundObject(json.load(infile),self)
+            else:                           # if not request freesound
+                blockPrint()
+                try:    
+                    self.loaded_analysis[numSound] = self.loaded_sounds[numSound].get_analysis_frames()
+                except ValueError:
+                    #print "Oops! JSON files not found !"
+                    print ""
+                enablePrint()
             numSound = numSound+1
             Bar.update(numSound+1)
         
@@ -175,7 +180,7 @@ class Client(freesound.FreesoundClient):
         
         while (numSound<nbSound):
             nameFile = 'analysis/' + str(self.loaded_sounds[numSound].id) + '.json'
-            if self.loaded_analysis[numSound]:
+            if self.loaded_analysis[numSound] and not(os.path.isfile(nameFile)):
                 with open(nameFile, 'w') as outfile:
                     json.dump(self.loaded_analysis[numSound].as_dict(), outfile)
             numSound = numSound+1
