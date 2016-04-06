@@ -1,5 +1,5 @@
 """
-Upgrage of the python client for freesound
+Upgrade of the python client for freesound
 
 Find the API documentation at http://www.freesound.org/docs/api/.
 
@@ -11,12 +11,7 @@ import freesound
 import os
 import json
 
-# Needed to remove non asci caracter in names
-def strip_non_ascii(string):
-    ''' Returns the string without non ASCII characters'''
-    stripped = (c for c in string if 0 < ord(c) < 127)
-    return ''.join(stripped)
-
+LENGTH_BAR = 30
 
 class Client(freesound.FreesoundClient):
     """
@@ -26,6 +21,7 @@ class Client(freesound.FreesoundClient):
     >>> c.init()
     
     """
+    
     loaded_sounds = []
     loaded_analysis = []
     
@@ -41,8 +37,21 @@ class Client(freesound.FreesoundClient):
             print "Your api key as been stored to api_key.txt file"
             self.__init__()
             
+    def my_text_search(self, **param):
+        """
+        Call text_search and add all the fields and page size and load the sounds in a variable
         
-    def load_sounds(self,results_pager):
+        >>> import lib
+        >>> c = lib.Client()
+        >>> c.my_text_search(query="wind")
+        
+        """
+        
+        results_pager = self.text_search(fields="id,name,url,tags,description,type,filesize,bitrate,bitdepth,duration,samplerate,username,comments,num_comments,analysis_frames",page_size=150,**param)
+        self.load_sounds(results_pager)
+        
+        
+    def load_sounds(self, results_pager):
         """
         Use this method to load the sounds from a result pager in the loaded_sounds variable 
         
@@ -50,12 +59,12 @@ class Client(freesound.FreesoundClient):
         >>> c.load_sounds(results_pager)
         
         """
+        
         nbSound = results_pager.count
         numSound = 0 # for iteration
         results_pager_last = results_pager
-        Bar = ProgressBar(nbSound,50,'Loading sounds')
-        
-        
+        Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading sounds')
+           
         # 1st iteration
         for i in results_pager:
             i.name = strip_non_ascii(i.name)
@@ -81,13 +90,14 @@ class Client(freesound.FreesoundClient):
         """
         Use this method to save loaded sounds into json files
         """
+        
         if not os.path.exists('sounds'):
             os.makedirs('sounds')
        
         numSound = 0
         nbSound = len(self.loaded_sounds)
         
-        Bar = ProgressBar(nbSound,50,'Saving sounds')
+        Bar = ProgressBar(nbSound,LENGTH_BAR,'Saving sounds')
         
         while (numSound<nbSound):
             nameFile = 'sounds/' + str(self.loaded_sounds[numSound].id) + '.json'
@@ -97,23 +107,32 @@ class Client(freesound.FreesoundClient):
             numSound = numSound+1
             Bar.update(numSound+1)
         
-    def load_sounds_json(self):
+    def load_sounds_json(self,idToLoad):
         """ 
         Use this method to load sounds from json files
         TODO : add param to load only certain sounds
         ADD A GENERAL JSON WHERE ALL TITLES/TAGS/ID ARE IN ORDER TO BE ABLE TO SEARCH TEXT, ...
         """
-        files = os.listdir('./sounds/')
-        nbSound = len(files)
-        Bar = ProgressBar(nbSound,50,'Loading sounds')
-        self.loadedSounds = [None]*nbSound
         
-        for numSound in range(nbSound):
-            with open('sounds/'+files[numSound]) as infile:
-                self.loaded_sounds[numSound] = freesound.FreesoundObject(json.load(infile),self)
-            Bar.update(numSound+1)
-            
-            
+        if (idToLoad == 'all') :
+            files = os.listdir('./sounds/')
+            nbSound = len(files)
+            Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading sounds')
+            self.loaded_sounds = [None]*nbSound
+            for numSound in range(nbSound):
+                with open('sounds/'+files[numSound]) as infile:
+                    self.loaded_sounds[numSound] = freesound.Sound(json.load(infile),self)
+                Bar.update(numSound+1)
+        else:
+            nbSound = len(idToLoad)
+            Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading sounds')
+            self.loaded_sounds = [None]*nbSound
+            for numSound in range(nbSound):
+                with open('sounds/'+str(idToLoad[numSound])+'.json') as infile:
+                    self.loaded_sounds[numSound] = freesound.Sound(json.load(infile),self)
+                Bar.update(numSound+1)
+                print ""
+        
         
     def load_analysis(self):
         """
@@ -124,10 +143,11 @@ class Client(freesound.FreesoundClient):
         TODO : load analysis frames from freesound or from local directory when possible
         
         """
+        
         nbSound = len(self.loaded_sounds)
         numSound = 0 # for iteration
         self.loaded_analysis = [None]*nbSound
-        Bar = ProgressBar(nbSound,50,'Loading analysis')
+        Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading analysis')
         
         while (numSound<nbSound):
             blockPrint()
@@ -147,13 +167,14 @@ class Client(freesound.FreesoundClient):
         
         TODO : fix it to remove the care problem...
         """
+        
         if not os.path.exists('analysis'):
             os.makedirs('analysis')
-            
+         
         numSound = 0
         nbSound = len(self.loaded_sounds)
         
-        Bar = ProgressBar(nbSound,50,'Saving analysis')
+        Bar = ProgressBar(nbSound,LENGTH_BAR,'Saving analysis')
         
         while (numSound<nbSound):
             nameFile = 'analysis/' + str(self.loaded_sounds[numSound].id) + '.json'
@@ -163,23 +184,47 @@ class Client(freesound.FreesoundClient):
             numSound = numSound+1
             Bar.update(numSound+1)
         
-    def load_analysis_json(self):
+    def load_analysis_json(self,idToLoad):
         """
         Use this method to load all analysis in a FreesoundObject from all json files
+        idToLoad : list of sound id or 'all'
         
-        TODO : add an option to also load sounds 
         """
-        files = os.listdir('./analysis/')
-        nbSound = len(files)
-        Bar = ProgressBar(nbSound,50,'Loading analysis')
-        self.loaded_analysis = [None]*nbSound
-        
-        for numSound in range(nbSound):
-            with open('analysis/'+files[numSound]) as infile:
-                self.loaded_analysis[numSound] = freesound.FreesoundObject(json.load(infile),self)
-            Bar.update(numSound+1)
+         
+        if (idToLoad == 'all'):
+            files = os.listdir('./analysis/')
+            nbSound = len(files)
+            Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading analysis')
+            self.loaded_analysis = [None]*nbSound
+
+            for numSound in range(nbSound):
+                with open('analysis/'+files[numSound]) as infile:
+                    self.loaded_analysis[numSound] = freesound.FreesoundObject(json.load(infile),self)
+                Bar.update(numSound+1)
+            
+        else:    
+            nbSound = len(idToLoad)
+            Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading analysis')
+            self.loaded_analysis = [None]*nbSound
+            for numSound in range(nbSound):
+                with open('analysis/'+str(idToLoad[numSound])+'.json' ) as infile:
+                    self.loaded_analysis[numSound] = freesound.FreesoundObject(json.load(infile),self)
+                Bar.update(numSound+1)
             
             
+
+    def save_json(self):
+        self.save_sounds_json()
+        self.save_analysis_json()
+            
+    def load_json(self, idToLoad):
+        self.load_sounds_json(idToLoad)
+        self.load_analysis_json(idToLoad)
+            
+            
+#_________________________________________________________________#
+#                             UTILS                               #
+#_________________________________________________________________#
 class ProgressBar:
     '''
     Progress bar
@@ -214,4 +259,9 @@ def blockPrint():
 def enablePrint():
     sys.stdout = sys.__stdout__
 
-        
+
+# Needed to remove non asci caracter in names
+def strip_non_ascii(string):
+    ''' Returns the string without non ASCII characters'''
+    stripped = (c for c in string if 0 < ord(c) < 127)
+    return ''.join(stripped)
