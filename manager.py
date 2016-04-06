@@ -17,9 +17,6 @@ class Client(freesound.FreesoundClient):
     """
     Create FreesoundClient and set authentification
     
-    >>> c = FreesoundClient()
-    >>> c.init()
-    
     """
     
     loaded_sounds = []
@@ -41,8 +38,8 @@ class Client(freesound.FreesoundClient):
         """
         Call text_search and add all the fields and page size and load the sounds in a variable
         
-        >>> import lib
-        >>> c = lib.Client()
+        >>> import manager
+        >>> c = manager.Client()
         >>> c.my_text_search(query="wind")
         
         """
