@@ -1,4 +1,4 @@
-lib.py
+manager.py
 ============
 
 A library over freesound.py that helps managing sounds and analysis
@@ -8,8 +8,8 @@ The aim is to develop a tool that could help us using/analysing datas from frees
 Example usage:
 
 ```
-import lib
-c = lib.Client() 
+import manager
+c = manager.Client() 
 
 ```
 The Client from lib.py is also a FreesoundClient object, it has all the methods describe in freesound.py
