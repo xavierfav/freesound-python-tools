@@ -41,7 +41,8 @@ class Client(freesound.FreesoundClient):
         
         """
         
-        results_pager = self.text_search(fields="id,name,url,tags,description,type,previews,filesize,bitrate,bitdepth,duration,samplerate,username,comments,num_comments,analysis_frames",page_size=150,**param)
+        results_pager = self.text_search(fields="id",page_size=150,**param)
+        #self.text_search(fields="id,name,url,tags,description,type,previews,filesize,bitrate,bitdepth,duration,samplerate,username,comments,num_comments,analysis_frames",page_size=150,**param)
         return results_pager
         
         
@@ -202,9 +203,39 @@ class Basket(Client):
             Bar.update(i+1)
         
     
+    def load_sounds(self, results_pager):
+        """
+        Use this method to load all the sounds from a result pager int the basket (this method does not take the objects from the pager but usgin my_get_sound() which return a sound with all the fields)
+        
+        >>> results_pager = c.my_text_search(query='wind')
+        >>> b.load_sounds(results_pager)
+        
+        """
+        nbSound = results_pager.count
+        numSound = 0 # for iteration
+        results_pager_last = results_pager
+        Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading sounds')
+        
+        # 1st iteration
+        for i in results_pager:
+            self.push(self.my_get_sound(i.id))
+            numSound = numSound+1
+            Bar.update(numSound+1)
+            
+        # next iteration
+        while (numSound<nbSound):
+            blockPrint()
+            results_pager = results_pager_last.next_page()
+            enablePrint()    
+            for i in results_pager:
+                self.push(self.my_get_sound(i.id))
+                numSound = numSound+1
+                Bar.update(numSound+1)
+            results_pager_last = results_pager
+    
     def load_sounds_pager(self, results_pager):
         """
-        Use this method to load all the sounds from a result pager in the basket
+        Use this method to load all the sounds from a result pager in the basket (this method takes sounds from the pager - WARNING : fields will be the one asked in the request for the pager...) TODO : probably remove this function...
         
         >>> results_pager = c.my_text_search(query='wind')
         >>> b.load_sounds_pager(results_pager)
@@ -239,9 +270,11 @@ class Basket(Client):
             results_pager_last = results_pager
             #print ' \n CHANGE PAGE \n '
     
-    
+    # REMOVE THIS AND ALLOW TO SAVE A BASKET IN A FOLDER (save ids only and query request and some comments...)
     def save_sounds_json(self):
         """
+        WARNING : does not work because it calls a private method from Client __save_sound_json
+        However, this method is useless since we save all the sounds we get from the method my_get_sound()
         Use this method to save all loaded sounds in the basket into json files
         """
         

@@ -21,7 +21,7 @@ sound = c.my_get_sound(23)
 A Basket is used to store sounds and analysis :
 ```
 b = manager.Basket()
-b.load_sounds_pager(pager)
+b.load_sounds(pager)
 b.update_analysis()
 
 b.sounds
