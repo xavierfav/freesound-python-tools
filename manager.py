@@ -301,7 +301,10 @@ class Basket(Client):
             Bar.update(numSound+1)
 
     
-
+# TODO :    create a class for utilities
+#           add management of baskets
+#           add a class for (sound analysis id)
+#           
 #_________________________________________________________________#
 #                             UTILS                               #
 #_________________________________________________________________#
