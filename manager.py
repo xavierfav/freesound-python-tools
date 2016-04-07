@@ -20,7 +20,7 @@ class Client(freesound.FreesoundClient):
     """
     
     def __init__(self):
-        try :
+        try:
             temp = open('api_key.txt').read().splitlines()
             self.set_token(temp[0],"token") 
         except IOError:
@@ -28,12 +28,13 @@ class Client(freesound.FreesoundClient):
             temp = open('api_key.txt', 'w')
             temp.write(api_key)
             temp.close()
-            print "Your api key as been stored to api_key.txt file"
+            print "Your api key as been stored in api_key.txt file"
             self.__init__()
             
     def my_text_search(self, **param):
         """
-        Call text_search and add all the fields and page size and load the sounds in a variable
+        Call text_search method from freesound.py and add all the defaults fields and page size parameters
+        TODO : add default param more flexible (store in a param file - add the api_key in a .py file)
         
         >>> import manager
         >>> c = manager.Client()
@@ -123,7 +124,7 @@ class Client(freesound.FreesoundClient):
         TODO : add overwrite option...
         """
         
-        if not os.path.exists('sounds'):
+        if not os.path.exists('sounds'):            # TODO : put this in the __init__() of the class
             os.makedirs('sounds')
             
         #soundIndex = self.loaded_ids.index(str(sound.id))
@@ -139,15 +140,16 @@ class Client(freesound.FreesoundClient):
         """
            
         nameFile = 'sounds/' + str(idToLoad) + '.json'
-        if os.path.isfile(nameFile):
+        if os.path.isfile(nameFile):                # TODO : put this in the __init__() of the class
             with open(nameFile) as infile:
                 sound = freesound.Sound(json.load(infile),self)
             return sound
         else:
             return None
-            
+          
+           
     def __save_analysis_json(self,analysis,idSound):
-        if not os.path.exists('analysis'):
+        if not os.path.exists('analysis'):          # TODO : put this in the __init__() of the class
             os.makedirs('analysis')
             
         nameFile = 'analysis/' + str(idSound) + '.json'
@@ -160,7 +162,7 @@ class Client(freesound.FreesoundClient):
         load analysis from json
         """
         nameFile = 'analysis/' + str(idToLoad) + '.json'
-        if os.path.isfile(nameFile):
+        if os.path.isfile(nameFile):            # TODO : check the time of this line (maybe in the init of the class create a variable with all local files?)
             with open(nameFile) as infile:
                 analysis = freesound.FreesoundObject(json.load(infile),self)
             return analysis
@@ -173,7 +175,7 @@ class Basket(Client):
     """
     A basket where sounds and analysis can be loaded
     >>> b = manager.Basket()
-    
+    TODO : save baskets, create library of baskets, comments, title, ...
     """
     
     sounds = []
@@ -193,7 +195,13 @@ class Basket(Client):
     
     def update_analysis(self):
         """
-        Use this method to update the analysis 
+        Use this method to update the analysis.
+        All the analysis of the sounds that are loaded will be loaded
+        
+        >>> results_pager = c.my_text_search(query='wind')
+        >>> b.load_sounds(results_pager) 
+        >>> b.update_analysis()
+        
         """
         nbSound = len(self.analysis)
         Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading analysis')
@@ -205,7 +213,8 @@ class Basket(Client):
     
     def load_sounds(self, results_pager):
         """
-        Use this method to load all the sounds from a result pager int the basket (this method does not take the objects from the pager but usgin my_get_sound() which return a sound with all the fields)
+        Use this method to load all the sounds from a result pager int the basket 
+        this method does not take the objects from the pager but usgin my_get_sound() which return a sound with all the fields
         
         >>> results_pager = c.my_text_search(query='wind')
         >>> b.load_sounds(results_pager)
@@ -213,10 +222,10 @@ class Basket(Client):
         """
         nbSound = results_pager.count
         numSound = 0 # for iteration
-        results_pager_last = results_pager
+        results_pager_last = results_pager             
         Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading sounds')
         
-        # 1st iteration
+        # 1st iteration                              # maybe there is a better way to iterate through pages...
         for i in results_pager:
             self.push(self.my_get_sound(i.id))
             numSound = numSound+1
