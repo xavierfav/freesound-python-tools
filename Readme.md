@@ -3,23 +3,32 @@ manager.py
 
 A library over freesound.py that helps managing sounds and analysis
 
-The aim is to develop a tool that could help us using/analysing datas from freesound & local.
+The aim is to develop a tool that could help us using/analysing datas from freesound & local. Future work will focus on saving experiments with datas, such as classification.
 
 Example usage:
 
 ```
 import manager
 c = manager.Client() 
-
 ```
 The Client from lib.py is also a FreesoundClient object, it has all the methods describe in freesound.py
 
+Method were created to facilitate the use of the one from freesound.py :
 ```
-results = c.text_search(query="dubstep",fields="id,name,previews")
-c.load_sounds(results)
-c.load_analysis()
+pager = c.my_text_search(query="dubstep")
+sound = c.my_get_sound(23)
+```
+A Basket is used to store sounds and analysis :
+```
+b = manager.Basket()
+b.load_sounds_pager(pager)
+b.update_analysis()
 
+b.sounds
+b.analysis
 ```
+
+The library takes care of downloading datas from Freesound or local. It also saves sounds and analysis in local automatically.
 
 freesound.py
 ============

@@ -19,9 +19,6 @@ class Client(freesound.FreesoundClient):
     
     """
     
-    loaded_sounds = []
-    loaded_analysis = []
-    
     def __init__(self):
         try :
             temp = open('api_key.txt').read().splitlines()
@@ -40,22 +37,184 @@ class Client(freesound.FreesoundClient):
         
         >>> import manager
         >>> c = manager.Client()
-        >>> c.my_text_search(query="wind")
+        >>> result = c.my_text_search(query="wind")
         
         """
         
         results_pager = self.text_search(fields="id,name,url,tags,description,type,previews,filesize,bitrate,bitdepth,duration,samplerate,username,comments,num_comments,analysis_frames",page_size=150,**param)
-        self.load_sounds(results_pager)
+        return results_pager
         
         
-    def load_sounds(self, results_pager):
+    def my_get_sound(self,idToLoad):
         """
-        Use this method to load the sounds from a result pager in the loaded_sounds variable 
+        Use this method to get a sound from local or freesound if not in local
+        >>> sound = c.my_get_sound(id)
+        """
         
-        >>> results_pager = c.text_search(query="wind", filter="tag:wind duration:[0 TO 30.0]", sort="rating_desc", fields="id,name,previews,analysis_frames", page_size=50)
-        >>> c.load_sounds(results_pager)
+        sound = self.__load_sound_json(idToLoad)
+        if not(sound):
+            blockPrint()
+            try:     
+                sound = self.get_sound(idToLoad)
+                self.__save_sound_json(sound) # save it
+            except:
+                print 'File does not exist'
+            enablePrint()
+                
+        return sound
+        
+    def my_get_sounds(self,idsToLoad):
+        """
+        Use this method to get many sounds from local or freesound 
+        """ 
+        
+        sounds = []
+        nbSound = len(idsToLoad)
+        Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading sounds')
+        
+        for i in range(nbSound):        
+            sound.append(self.my_get_sound(idsToLoad[i]))  
+            Bar.update(i+1)
+            
+        return sounds    
+    
+    def my_get_analysis(self,idToLoad):
+        """
+        Use this method to get an analysis from local or freesound if needed
+        
+        >>> analysis = c.my_get_analysis(id)  
+        """
+        
+        analysis = self.__load_analysis_json(idToLoad)
+        
+        if not(analysis):
+            sound = self.my_get_sound(idToLoad)
+            blockPrint()
+            try:
+                analysis = sound.get_analysis_frames()
+                self.__save_analysis_json(analysis, idToLoad)# save it
+            except:
+                print 'File does not exist'
+            enablePrint()
+                
+        return analysis
+          
+
+    def my_get_analysiss(self,idsToLoad):
+        """
+        Use this method to get many analysis from local or freesound
+        """
+        
+        analysis = []
+        nbAnalysis = len(idsToLoad)
+        Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading sounds')
+        
+        for i in range(nbSound):        
+            analysis.append(self.my_get_analysis(idsToLoad[i]))  
+            Bar.update(i+1)
+            
+        return analysis  
+    
+    
+    def __save_sound_json(self,sound):
+        """
+        save a sound into a json file
+        TODO : add overwrite option...
+        """
+        
+        if not os.path.exists('sounds'):
+            os.makedirs('sounds')
+            
+        #soundIndex = self.loaded_ids.index(str(sound.id))
+        nameFile = 'sounds/' + str(sound.id) + '.json'
+        if sound and not(os.path.isfile(nameFile)):
+            with open(nameFile, 'w') as outfile:
+                json.dump(sound.as_dict(), outfile)    
+    
+    
+    def __load_sound_json(self,idToLoad):
+        """
+        load a sound from local json
+        """
+           
+        nameFile = 'sounds/' + str(idToLoad) + '.json'
+        if os.path.isfile(nameFile):
+            with open(nameFile) as infile:
+                sound = freesound.Sound(json.load(infile),self)
+            return sound
+        else:
+            return None
+            
+    def __save_analysis_json(self,analysis,idSound):
+        if not os.path.exists('analysis'):
+            os.makedirs('analysis')
+            
+        nameFile = 'analysis/' + str(idSound) + '.json'
+        if analysis and not(os.path.isfile(nameFile)):
+            with open(nameFile, 'w') as outfile:
+                json.dump(analysis.as_dict(), outfile)
+            
+    def __load_analysis_json(self,idToLoad):
+        """
+        load analysis from json
+        """
+        nameFile = 'analysis/' + str(idToLoad) + '.json'
+        if os.path.isfile(nameFile):
+            with open(nameFile) as infile:
+                analysis = freesound.FreesoundObject(json.load(infile),self)
+            return analysis
+        else:
+            return None
+        
+
+           
+class Basket(Client):
+    """
+    A basket where sounds and analysis can be loaded
+    >>> b = manager.Basket()
+    
+    """
+    
+    sounds = []
+    analysis = []
+    ids = []
+    
+    
+    def push(self,sound,analysis=None):
+        """
+        >>> sound = c.my_get_sound(query='wind')
+        >>> b.push(sound)
         
         """
+        self.sounds.append(sound)
+        self.ids.append(sound.id)
+        self.analysis.append(analysis)
+    
+    def update_analysis(self):
+        """
+        Use this method to update the analysis 
+        """
+        nbSound = len(self.analysis)
+        Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading analysis')
+        for i in range(nbSound):
+            if not(self.analysis[i]):
+                self.analysis[i] = self.my_get_analysis(self.ids[i])
+            Bar.update(i+1)
+        
+    
+    def load_sounds_pager(self, results_pager):
+        """
+        Use this method to load all the sounds from a result pager in the basket
+        
+        >>> results_pager = c.my_text_search(query='wind')
+        >>> b.load_sounds_pager(results_pager)
+        
+        """
+        
+        def load_sound(sound):
+            sound.name = strip_non_ascii(sound.name)
+            #self.__save_sound_json(sound) # save sound
+            self.push(sound)
         
         nbSound = results_pager.count
         numSound = 0 # for iteration
@@ -64,8 +223,7 @@ class Client(freesound.FreesoundClient):
            
         # 1st iteration
         for i in results_pager:
-            i.name = strip_non_ascii(i.name)
-            self.loaded_sounds.append(copy.copy(i))
+            load_sound(copy.copy(i))
             numSound = numSound+1
             Bar.update(numSound+1)
             
@@ -75,155 +233,33 @@ class Client(freesound.FreesoundClient):
             results_pager = results_pager_last.next_page()
             enablePrint()    
             for i in results_pager:
-                i.name = strip_non_ascii(i.name)
-                self.loaded_sounds.append(copy.copy(i))
+                load_sound(copy.copy(i))
                 numSound = numSound+1
                 Bar.update(numSound+1)
             results_pager_last = results_pager
             #print ' \n CHANGE PAGE \n '
-
-        
+    
+    
     def save_sounds_json(self):
         """
-        Use this method to save loaded sounds into json files
+        Use this method to save all loaded sounds in the basket into json files
         """
         
         if not os.path.exists('sounds'):
             os.makedirs('sounds')
        
         numSound = 0
-        nbSound = len(self.loaded_sounds)
+        nbSound = len(self.sounds)
         
         Bar = ProgressBar(nbSound,LENGTH_BAR,'Saving sounds')
         
         while (numSound<nbSound):
-            nameFile = 'sounds/' + str(self.loaded_sounds[numSound].id) + '.json'
-            if self.loaded_sounds[numSound] and not(os.path.isfile(nameFile)):
-                with open(nameFile, 'w') as outfile:
-                    json.dump(self.loaded_sounds[numSound].as_dict(), outfile)
+            self.__save_sound_json(self.sounds[numSound])
             numSound = numSound+1
             Bar.update(numSound+1)
-        
-    def load_sounds_json(self,idToLoad):
-        """ 
-        Use this method to load sounds from json files
-        TODO : add param to load only certain sounds
-        ADD A GENERAL JSON WHERE ALL TITLES/TAGS/ID ARE IN ORDER TO BE ABLE TO SEARCH TEXT, ...
-        """
-        
-        if (idToLoad == 'all') :
-            files = os.listdir('./sounds/')
-            nbSound = len(files)
-            Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading sounds')
-            self.loaded_sounds = [None]*nbSound
-            for numSound in range(nbSound):
-                with open('sounds/'+files[numSound]) as infile:
-                    self.loaded_sounds[numSound] = freesound.Sound(json.load(infile),self)
-                Bar.update(numSound+1)
-        else:
-            nbSound = len(idToLoad)
-            Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading sounds')
-            self.loaded_sounds = [None]*nbSound
-            for numSound in range(nbSound):
-                with open('sounds/'+str(idToLoad[numSound])+'.json') as infile:
-                    self.loaded_sounds[numSound] = freesound.Sound(json.load(infile),self)
-                Bar.update(numSound+1)
-                print ""
-        
-        
-    def load_analysis(self):
-        """
-        Use this method to load the analysis frames of the sounds previously loaded
-        
-        >>> c.load_analysis()
-        
-        TODO : load analysis frames from freesound or from local directory when possible
-        
-        """
-        
-        nbSound = len(self.loaded_sounds)
-        numSound = 0 # for iteration
-        self.loaded_analysis = [None]*nbSound
-        Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading analysis')
-        
-        while (numSound<nbSound):
-            nameFile = 'analysis/' + str(self.loaded_sounds[numSound].id) + '.json'
-            if os.path.isfile(nameFile):    # is analysis in local ?
-                with open(nameFile) as infile:
-                    self.loaded_analysis[numSound] = freesound.FreesoundObject(json.load(infile),self)
-            else:                           # if not request freesound
-                blockPrint()
-                try:    
-                    self.loaded_analysis[numSound] = self.loaded_sounds[numSound].get_analysis_frames()
-                except ValueError:
-                    #print "Oops! JSON files not found !"
-                    print ""
-                enablePrint()
-            numSound = numSound+1
-            Bar.update(numSound+1)
-        
-    def save_analysis_json(self):
-        """
-        Use this method to save previoulsy loaded analysis to json files (name:sound_id)
-        Care : if the loaded sounds are not corresponding with the loaded analysis, wrong name will be given to json files...
-        
-        TODO : fix it to remove the care problem...
-        """
-        
-        if not os.path.exists('analysis'):
-            os.makedirs('analysis')
-         
-        numSound = 0
-        nbSound = len(self.loaded_sounds)
-        
-        Bar = ProgressBar(nbSound,LENGTH_BAR,'Saving analysis')
-        
-        while (numSound<nbSound):
-            nameFile = 'analysis/' + str(self.loaded_sounds[numSound].id) + '.json'
-            if self.loaded_analysis[numSound] and not(os.path.isfile(nameFile)):
-                with open(nameFile, 'w') as outfile:
-                    json.dump(self.loaded_analysis[numSound].as_dict(), outfile)
-            numSound = numSound+1
-            Bar.update(numSound+1)
-        
-    def load_analysis_json(self,idToLoad):
-        """
-        Use this method to load all analysis in a FreesoundObject from all json files
-        idToLoad : list of sound id or 'all'
-        
-        """
-         
-        if (idToLoad == 'all'):
-            files = os.listdir('./analysis/')
-            nbSound = len(files)
-            Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading analysis')
-            self.loaded_analysis = [None]*nbSound
 
-            for numSound in range(nbSound):
-                with open('analysis/'+files[numSound]) as infile:
-                    self.loaded_analysis[numSound] = freesound.FreesoundObject(json.load(infile),self)
-                Bar.update(numSound+1)
-            
-        else:    
-            nbSound = len(idToLoad)
-            Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading analysis')
-            self.loaded_analysis = [None]*nbSound
-            for numSound in range(nbSound):
-                with open('analysis/'+str(idToLoad[numSound])+'.json' ) as infile:
-                    self.loaded_analysis[numSound] = freesound.FreesoundObject(json.load(infile),self)
-                Bar.update(numSound+1)
-            
-            
+    
 
-    def save_json(self):
-        self.save_sounds_json()
-        self.save_analysis_json()
-            
-    def load_json(self, idToLoad):
-        self.load_sounds_json(idToLoad)
-        self.load_analysis_json(idToLoad)
-            
-            
 #_________________________________________________________________#
 #                             UTILS                               #
 #_________________________________________________________________#
@@ -267,3 +303,98 @@ def strip_non_ascii(string):
     ''' Returns the string without non ASCII characters'''
     stripped = (c for c in string if 0 < ord(c) < 127)
     return ''.join(stripped)
+
+
+
+
+
+
+
+#propably garbadge
+#    def save_analysis_json(self):
+#        """
+#        Use this method to save previoulsy loaded analysis to json files (name:sound_id)
+#        Care : if the loaded sounds are not corresponding with the loaded analysis, wrong name will be given to json files...
+#        
+#        TODO : fix it to remove the care problem...
+#        """
+#        
+#        if not os.path.exists('analysis'):
+#            os.makedirs('analysis')
+#         
+#        numSound = 0
+#        nbSound = len(self.loaded_sounds)
+#        
+#        Bar = ProgressBar(nbSound,LENGTH_BAR,'Saving analysis')
+#        
+#        while (numSound<nbSound):
+#            nameFile = 'analysis/' + str(self.loaded_sounds[numSound].id) + '.json'
+#            if self.loaded_analysis[numSound] and not(os.path.isfile(nameFile)):
+#                with open(nameFile, 'w') as outfile:
+#                    json.dump(self.loaded_analysis[numSound].as_dict(), outfile)
+#            numSound = numSound+1
+#            Bar.update(numSound+1)
+#        
+#    def load_analysis_json(self,idToLoad):
+#        """
+#        Use this method to load all analysis in a FreesoundObject from all json files
+#        idToLoad : list of sound id or 'all'
+#        
+#        """
+#         
+#        if (idToLoad == 'all'):
+#            files = os.listdir('./analysis/')
+#            nbSound = len(files)
+#            Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading analysis')
+#            self.loaded_analysis = [None]*nbSound
+#
+#            for numSound in range(nbSound):
+#                with open('analysis/'+files[numSound]) as infile:
+#                    self.loaded_analysis[numSound] = freesound.FreesoundObject(json.load(infile),self)
+#                Bar.update(numSound+1)
+#            
+#        else:    
+#            nbSound = len(idToLoad)
+#            Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading analysis')
+#            self.loaded_analysis = [None]*nbSound
+#            for numSound in range(nbSound):
+#                with open('analysis/'+str(idToLoad[numSound])+'.json' ) as infile:
+#                    self.loaded_analysis[numSound] = freesound.FreesoundObject(json.load(infile),self)
+#                Bar.update(numSound+1)
+#            
+#    def load_sounds_json(self,idsToLoad):
+#        """ 
+#        Use this method to load sounds from all json files
+#        TODO : add param to load only certain sounds
+#        ADD A GENERAL JSON WHERE ALL TITLES/TAGS/ID ARE IN ORDER TO BE ABLE TO SEARCH TEXT, ...
+#        """
+#        
+#        if (idsToLoad == 'all') :
+#            files = os.listdir('./sounds/')
+#            nbSound = len(files)
+#            Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading sounds')
+#            self.sounds = [None]*nbSound
+#            for numSound in range(nbSound):
+#                with open('sounds/'+files[numSound]) as infile:
+#                    self.sounds[numSound] = freesound.Sound(json.load(infile),self)
+#                Bar.update(numSound+1)
+#        else:
+#            nbSound = len(idsToLoad)
+#            Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading sounds')
+#            self.sounds = [None]*nbSound
+#            for numSound in range(nbSound):
+#                with open('sounds/'+str(idsToLoad[numSound])+'.json') as infile:
+#                    self.sounds[numSound] = freesound.Sound(json.load(infile),self)
+#                Bar.update(numSound+1)
+#                
+#      
+#
+
+#   
+#    def save_json(self):
+#        self.save_sounds_json()
+#        self.save_analysis_json()
+#            
+#    def load_json(self, idToLoad):
+#        self.load_sounds_json(idToLoad)
+#        self.load_analysis_json(idToLoad)
