@@ -132,7 +132,7 @@ class Client(freesound.FreesoundClient):
         
         analysis = []
         nbAnalysis = len(idsToLoad)
-        Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading sounds')
+        Bar = ProgressBar(nbAnalysis,LENGTH_BAR,'Loading sounds')
         Bar.update(0)
         for i in range(nbSound):        
             analysis.append(self.my_get_analysis(idsToLoad[i]))  
