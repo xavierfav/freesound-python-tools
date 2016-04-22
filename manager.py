@@ -13,36 +13,60 @@ import json
 
 LENGTH_BAR = 30
 
+class SettingsSingleton(object):
+    class __OnlyOne:
+        def __init__(self):
+            self.local_sounds = []
+            self.local_analysis = []
+            self.local_baskets = []
+    instance = None
+    def __new__(cls): # __new__ always a classmethod
+        if not SettingsSingleton.instance:
+            SettingsSingleton.instance = SettingsSingleton.__OnlyOne()
+        return SettingsSingleton.instance
+    def __getattr__(self, name):
+        return getattr(self.instance, name)
+    def __setattr__(self, name):
+        return setattr(self.instance, name)
+
+
+
 class Client(freesound.FreesoundClient):
     """
     Create FreesoundClient and set authentification
     
     """
-    
-    local_sounds = []
-    local_analysis = []
-    
-    def __scan_folder(self):
-        
+    def scan_folder(self):
+        settings = SettingsSingleton()
+
         # Check if the storing folder are here
         if not os.path.exists('sounds'):            
-                os.makedirs('sounds')
+            os.makedirs('sounds')
         if not os.path.exists('analysis'):
-                os.makedirs('analysis') 
+            os.makedirs('analysis')
+        if not os.path.exists('baskets'):
+            os.makedirs('baskets')
                 
         # create variable with present local sounds & analysis 
         # (reduce time consumption for function loading json files)
         files_sounds = os.listdir('./sounds/')
         files_analysis = os.listdir('./analysis/')
-        for i, j in zip(files_sounds, files_analysis):
-            self.local_sounds.append(int(i[:-5]))
-            self.local_analysis.append(int(j[:-5]))
-        self.local_sounds.sort()
-        self.local_analysis.sort()
+        files_baskets = os.listdir('./baskets/')
+
+        settings = SettingsSingleton()
+        for i in files_sounds:
+            settings.local_sounds.append(int(i[:-5]))
+        for j in files_analysis:
+            settings.local_analysis.append(int(j[:-5]))
+        for m in files_baskets:
+            settings.local_baskets.append(m[:-5])
+        settings.local_sounds.sort()
+        settings.local_analysis.sort()
             
     
     def __init__(self):  
-        self.__scan_folder()
+        self.scan_folder()
+        self.autoSave = False
         try:
             temp = open('api_key.txt').read().splitlines()
             self.set_token(temp[0],"token")                      
@@ -76,12 +100,13 @@ class Client(freesound.FreesoundClient):
         >>> sound = c.my_get_sound(id)
         """
         
-        sound = self.__load_sound_json(idToLoad)
+        sound = self._load_sound_json(idToLoad)
         if not(sound):
             blockPrint()
             try:     
                 sound = self.get_sound(idToLoad)
-                self.__save_sound_json(sound) # save it
+                if self.autoSave:
+                    self._save_sound_json(sound) # save it
             except ValueError:
                 print 'File does not exist'
             enablePrint()
@@ -110,14 +135,15 @@ class Client(freesound.FreesoundClient):
         >>> analysis = c.my_get_analysis(id)  
         """
         
-        analysis = self.__load_analysis_json(idToLoad)
+        analysis = self._load_analysis_json(idToLoad)
         
         if not(analysis):
             sound = self.my_get_sound(idToLoad)
             blockPrint()
             try:
                 analysis = sound.get_analysis_frames()
-                self.__save_analysis_json(analysis, idToLoad)# save it
+                if self.autoSave:
+                    self._save_analysis_json(analysis, idToLoad)# save it
             except ValueError:
                 print 'File does not exist'
             enablePrint()
@@ -134,54 +160,59 @@ class Client(freesound.FreesoundClient):
         nbAnalysis = len(idsToLoad)
         Bar = ProgressBar(nbAnalysis,LENGTH_BAR,'Loading sounds')
         Bar.update(0)
-        for i in range(nbSound):        
+        for i in range(nbAnalysis):
             analysis.append(self.my_get_analysis(idsToLoad[i]))  
             Bar.update(i+1)
             
         return analysis  
     
     
-    def __save_sound_json(self,sound):
+    def _save_sound_json(self,sound):
         """
         save a sound into a json file
         TODO : add overwrite option...
-        """     
-        if sound and not(sound.id in self.local_sounds):
+        """
+        settings = SettingsSingleton()
+        if sound and not(sound.id in settings.local_sounds):
             nameFile = 'sounds/' + str(sound.id) + '.json'
             with open(nameFile, 'w') as outfile:
-                json.dump(sound.as_dict(), outfile)    
-            self.local_sounds.append(int(sound.id))
-            self.local_sounds.sort()
+                json.dump(sound.as_dict(), outfile)
+            settings.local_sounds.append(int(sound.id))
+            settings.local_sounds.sort()
     
-    def __load_sound_json(self,idToLoad):
+    def _load_sound_json(self,idToLoad):
         """
         load a sound from local json
-        """      
-        if idToLoad in self.local_sounds:
+        """
+        settings = SettingsSingleton()
+        if idToLoad in settings.local_sounds:
             nameFile = 'sounds/' + str(idToLoad) + '.json'
             with open(nameFile) as infile:
                 sound = freesound.Sound(json.load(infile),self)
+            return sound
         else:
             return None
           
            
-    def __save_analysis_json(self,analysis,idSound):   
+    def _save_analysis_json(self,analysis,idSound):
         """
         save an analysis into a json file
         TODO : add overwrite option...
         """
-        if analysis and not(idSound in self.local_analysis):
+        settings = SettingsSingleton()
+        if analysis and not(idSound in settings.local_analysis):
             nameFile = 'analysis/' + str(idSound) + '.json'
             with open(nameFile, 'w') as outfile:
                 json.dump(analysis.as_dict(), outfile)
-            self.local_analysis.append(int(idSound))
-            self.local_analysis.sort()    
+            settings.append(int(idSound))
+            settings.sort()
     
-    def __load_analysis_json(self,idToLoad):
+    def _load_analysis_json(self,idToLoad):
         """
         load analysis from json
         """
-        if idToLoad in self.local_analysis:
+        settings = SettingsSingleton()
+        if idToLoad in settings.local_analysis:
             nameFile = 'analysis/' + str(idToLoad) + '.json'
             with open(nameFile) as infile:
                 analysis = freesound.FreesoundObject(json.load(infile),self)
@@ -198,17 +229,13 @@ class Basket(Client):
     TODO : save baskets, create library of baskets, comments, title, ...
     """
     
-    local_sounds = Client.local_sounds
-    local_analysis = Client.local_analysis
-    
     def __init__(self):
         self.sounds = []
         self.analysis = []
         self.ids = []
         Client.__init__(self)
     
-    
-    def push(self,sound,analysis=None):
+    def push(self,sound=None,analysis=None):
         """
         >>> sound = c.my_get_sound(query='wind')
         >>> b.push(sound)
@@ -217,7 +244,17 @@ class Basket(Client):
         self.sounds.append(sound)
         self.ids.append(sound.id)
         self.analysis.append(analysis)
-    
+
+    def update_sounds(self):
+        nbSound = len(self.ids)
+        Bar = ProgressBar(nbSound, LENGTH_BAR, 'Loading sounds')
+        Bar.update(0)
+        for i in range(nbSound):
+            if not(self.sounds[i]):
+                self.sounds[i] = self.my_get_sound(self.ids[i])
+            Bar.update(i + 1)
+
+
     def update_analysis(self):
         """
         Use this method to update the analysis.
@@ -244,7 +281,7 @@ class Basket(Client):
         
         >>> results_pager = c.my_text_search(query='wind')
         >>> b.load_sounds(results_pager)
-        
+
         """
         nbSound = results_pager.count
         numSound = 0 # for iteration
@@ -267,7 +304,44 @@ class Basket(Client):
                 numSound = numSound+1
                 Bar.update(numSound+1)
             results_pager_last = results_pager
-    
+
+
+    def save(self,name):
+        """
+        Use this method to save a basket
+        """
+        settings = SettingsSingleton()
+        if name and not (name in settings.local_baskets):
+            nameFile = 'baskets/' + name + '.json'
+            with open(nameFile, 'w') as outfile:
+                json.dump(self.ids, outfile)
+            settings.local_baskets.append(name)
+
+            nbSound = len(self.ids)
+            for i in range(nbSound):
+                Client._save_sound_json(self, self.sounds[i])
+                Client._save_analysis_json(self, self.analysis[i],self.ids[i])
+        else:
+            print 'give a name that does not exist to your basket'
+
+    def load(self,name):
+        """
+        Use thise method to load a basket
+        """
+        settings = SettingsSingleton()
+        if name and name in settings.local_baskets:
+            nameFile = 'baskets/' + name + '.json'
+            with open(nameFile) as infile:
+                self.ids = json.load(infile)
+        nbSound = len(self.ids)
+        self.sounds = [None] * nbSound
+        self.analysis = [None] * nbSound
+        self.update_sounds()
+        print ''
+        self.update_analysis()
+
+
+    # TO RENOVE
     def load_sounds_pager(self, results_pager):
         """
         Use this method to load all the sounds from a result pager in the basket (this method takes sounds from the pager - WARNING : fields will be the one asked in the request for the pager...) TODO : probably remove this function...
@@ -304,7 +378,8 @@ class Basket(Client):
                 Bar.update(numSound+1)
             results_pager_last = results_pager
             #print ' \n CHANGE PAGE \n '
-    
+
+
     # REMOVE THIS AND ALLOW TO SAVE A BASKET IN A FOLDER (save ids only and query request and some comments...)
     def save_sounds_json(self):
         """
@@ -322,7 +397,7 @@ class Basket(Client):
         Bar = ProgressBar(nbSound,LENGTH_BAR,'Saving sounds')
         
         while (numSound<nbSound):
-            self.__save_sound_json(self.sounds[numSound])
+            Client.__save_sound_json(self.sounds[numSound])
             numSound = numSound+1
             Bar.update(numSound+1)
 
@@ -358,6 +433,7 @@ class ProgressBar:
         # render 
         out = '\r %20s [%s%s] %3d / %3d' % (self.title, '=' * bar, ' ' * (self.maxbar - bar), val, self.valmax)
         sys.stdout.write(out)
+        sys.stdout.flush()
         
 # disable logging         
 import sys, os
