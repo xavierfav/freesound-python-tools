@@ -36,6 +36,7 @@ class Client(freesound.FreesoundClient):
     Create FreesoundClient and set authentification
     
     """
+
     def scan_folder(self):
         settings = SettingsSingleton()
 
@@ -54,6 +55,10 @@ class Client(freesound.FreesoundClient):
         files_baskets = os.listdir('./baskets/')
 
         settings = SettingsSingleton()
+        settings.local_sounds = []
+        settings.local_analysis = []
+        settings.local_baskets = []
+
         for i in files_sounds:
             settings.local_sounds.append(int(i[:-5]))
         for j in files_analysis:
@@ -126,8 +131,8 @@ class Client(freesound.FreesoundClient):
             sounds.append(self.my_get_sound(idsToLoad[i]))  
             Bar.update(i+1)
             
-        return sounds    
-    
+        return sounds
+
     def my_get_analysis(self,idToLoad):
         """
         Use this method to get an analysis from local or freesound if needed
@@ -204,9 +209,9 @@ class Client(freesound.FreesoundClient):
             nameFile = 'analysis/' + str(idSound) + '.json'
             with open(nameFile, 'w') as outfile:
                 json.dump(analysis.as_dict(), outfile)
-            settings.append(int(idSound))
-            settings.sort()
-    
+            settings.local_analysis.append(int(idSound))
+            settings.local_analysis.sort()
+
     def _load_analysis_json(self,idToLoad):
         """
         load analysis from json
@@ -219,9 +224,8 @@ class Client(freesound.FreesoundClient):
             return analysis
         else:
             return None
-        
 
-           
+
 class Basket(Client):
     """
     A basket where sounds and analysis can be loaded
@@ -253,7 +257,6 @@ class Basket(Client):
             if not(self.sounds[i]):
                 self.sounds[i] = self.my_get_sound(self.ids[i])
             Bar.update(i + 1)
-
 
     def update_analysis(self):
         """
@@ -316,8 +319,9 @@ class Basket(Client):
             with open(nameFile, 'w') as outfile:
                 json.dump(self.ids, outfile)
             settings.local_baskets.append(name)
-
             nbSound = len(self.ids)
+            Bar = ProgressBar(nbSound, LENGTH_BAR, 'Loading sounds')
+            Bar.update(0)
             for i in range(nbSound):
                 Client._save_sound_json(self, self.sounds[i])
                 Client._save_analysis_json(self, self.analysis[i],self.ids[i])
