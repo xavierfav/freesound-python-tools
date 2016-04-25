@@ -21,6 +21,8 @@ except ImportError: #python 2.7
     from urllib import urlencode, FancyURLopener, quote
     from urllib2 import HTTPError, urlopen, Request
 
+import ijson
+
 class URIS():
     HOST = 'www.freesound.org'
     BASE =  'https://'+HOST+'/apiv2'
@@ -212,7 +214,7 @@ class FSRequest:
         d = urllib.urlencode(data) if data else None
         headers = {'Authorization':client.header}
         req = Request(url,d,headers)
-        print req, url
+        #print req, url
         try:
             f = urlopen(req)
         except HTTPError as e:
@@ -319,15 +321,23 @@ class Sound(FreesoundObject):
             params['descriptors']=descriptors
         return FSRequest.request(uri, params,self.client,FreesoundObject)
 
-    def get_analysis_frames(self):
+    def get_analysis_frames(self,descriptor):
         """
-        Get analysis frames.
-        >>> a = sound.get_analysis_frames()
-        >>> print(a.lowlevel.gfcc)
+        Get analysis frames of one descriptor
+        This function uses ijson library in order to load a part only of the json
+        Some descriptors contain .'item' or '.item.item' at the end...
+        Maybe build a sort of mapping (similar to class URIS)
+        >>> a = sound.get_analysis_frames('lowlevel.mfcc.item.item')
         """
+        analysis_frames = []
         uri = self.analysis_frames
-        params = {}
-        return FSRequest.request(uri, params, self.client, FreesoundObject)
+        parser = ijson.parse(urlopen(uri))
+        for prefix, type, value in parser:
+            if (prefix == descriptor):
+                analysis_frames.append(float(value))
+        return analysis_frames
+        #params = {}
+        #return FSRequest.request(uri, params, self.client, FreesoundObject)
         
     def get_similar(self, **params):
         """

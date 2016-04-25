@@ -10,6 +10,7 @@ import copy
 import freesound
 import os
 import json
+import ijson
 
 LENGTH_BAR = 30
 
@@ -225,7 +226,25 @@ class Client(freesound.FreesoundClient):
         else:
             return None
 
+    def load_analysis_descriptor_json(self, idToLoad, descriptor):
+        """
+        load analysis frames of a descriptor
+        TODO : add this function in the workflow, add class with possible descriptors
+        """
+        analysis = []
+        settings = SettingsSingleton()
+        if idToLoad in settings.local_analysis:
+            nameFile = 'analysis/' + str(idToLoad) + '.json'
+            with open(nameFile) as infile:
+                parser = ijson.parse(infile)
+                for prefix, type, value in parser:
+                    if prefix == descriptor:
+                        analysis.append(float(value))
+            return analysis
+        else:
+            return None
 
+# TODO : change the analysis and load only one type of analysis from the json, create classes
 class Basket(Client):
     """
     A basket where sounds and analysis can be loaded
