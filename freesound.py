@@ -332,9 +332,16 @@ class Sound(FreesoundObject):
         analysis_frames = []
         uri = self.analysis_frames
         parser = ijson.parse(urlopen(uri))
+        vector = []
         for prefix, type, value in parser:
-            if (prefix == descriptor):
-                analysis_frames.append(float(value))
+            # this wierd if statement is due to the ijson library that outputs tupples...
+            if (prefix == descriptor or prefix == descriptor + '.item' or prefix == descriptor + '.item.item' ):
+                if type == 'start_array':
+                    vector = []
+                elif type == 'number':
+                    vector.append(float(value))
+                elif type == 'end_array':
+                    analysis_frames.append(vector)
         return analysis_frames
         #params = {}
         #return FSRequest.request(uri, params, self.client, FreesoundObject)

@@ -134,27 +134,27 @@ class Client(freesound.FreesoundClient):
             
         return sounds
 
-    def my_get_analysis(self,idToLoad):
+    def my_get_analysis(self,idToLoad,descriptor):
         """
         Use this method to get an analysis from local or freesound if needed
         
         >>> analysis = c.my_get_analysis(id)  
         """
         
-        analysis = self._load_analysis_json(idToLoad)
+        analysis = self.load_analysis_descriptor_json(idToLoad,descriptor)
         
         if not(analysis):
             sound = self.my_get_sound(idToLoad)
             blockPrint()
             try:
-                analysis = sound.get_analysis_frames()
+                analysis = sound.get_analysis_frames(descriptor)
                 if self.autoSave:
                     self._save_analysis_json(analysis, idToLoad)# save it
             except ValueError:
                 print 'File does not exist'
             enablePrint()
                 
-        return analysis
+        return Analysis(descriptor, analysis)
           
 
     def my_get_analysiss(self,idsToLoad):
@@ -230,6 +230,7 @@ class Client(freesound.FreesoundClient):
         """
         load analysis frames of a descriptor
         TODO : add this function in the workflow, add class with possible descriptors
+        WARNING : this work for features like mfcc
         """
         analysis = []
         settings = SettingsSingleton()
@@ -237,12 +238,46 @@ class Client(freesound.FreesoundClient):
             nameFile = 'analysis/' + str(idToLoad) + '.json'
             with open(nameFile) as infile:
                 parser = ijson.parse(infile)
+                vector = []
                 for prefix, type, value in parser:
-                    if prefix == descriptor:
-                        analysis.append(float(value))
+                    # this wierd if statement is due to the ijson library that outputs tupples...
+                    if (prefix == descriptor or prefix == descriptor + '.item' or prefix == descriptor + '.item.item'):
+                        if type == 'start_array':  #WARNING : this work for features like mfcc
+                            vector = []
+                        elif type == 'number':
+                            vector.append(float(value))
+                        elif type == 'end_array':
+                            analysis.append(vector)
             return analysis
         else:
             return None
+
+
+class Analysis:
+    def __init__(self, name=None, frames=None):
+        self.name = name
+        self.frames = frames
+
+
+class Sound:
+    def __init__(self, sound = None, analysis = None, id = None):
+        self.sound = sound
+        self.analysis = [analysis]
+        self.id = id
+
+    def actualize(self, sound=None, analysis=None, id=None):
+        self.sound = sound
+        self.analysis = [analysis]
+        self.id = id
+
+    def add_analysis(self, name, analysis):
+        analysis = Analysis(name,analysis)
+        self.analysis.append(analysis)
+
+    def show_analysis_names(self):
+        for i in self.analysis:
+            print i.name
+
 
 # TODO : change the analysis and load only one type of analysis from the json, create classes
 class Basket(Client):
@@ -254,19 +289,18 @@ class Basket(Client):
     
     def __init__(self):
         self.sounds = []
-        self.analysis = []
-        self.ids = []
         Client.__init__(self)
     
-    def push(self,sound=None,analysis=None):
+    def push(self,sound,analysis):
         """
         >>> sound = c.my_get_sound(query='wind')
         >>> b.push(sound)
         
         """
-        self.sounds.append(sound)
-        self.ids.append(sound.id)
-        self.analysis.append(analysis)
+        self.sounds.append(Sound(sound,analysis,sound.id))
+
+
+
 
     def update_sounds(self):
         nbSound = len(self.ids)
