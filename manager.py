@@ -11,6 +11,7 @@ import freesound
 import os
 import json
 import ijson
+from numpy import array
 
 LENGTH_BAR = 30
 
@@ -72,7 +73,7 @@ class Client(freesound.FreesoundClient):
     
     def __init__(self):  
         self.scan_folder()
-        self.autoSave = False
+        self.autoSave = True
         try:
             temp = open('api_key.txt').read().splitlines()
             self.set_token(temp[0],"token")                      
@@ -142,18 +143,21 @@ class Client(freesound.FreesoundClient):
         """
         
         analysis = self.load_analysis_descriptor_json(idToLoad,descriptor)
-        
-        if not(analysis):
+
+        if type(analysis) == type(None):
             sound = self.my_get_sound(idToLoad)
             blockPrint()
             try:
-                analysis = sound.get_analysis_frames(descriptor)
+                analysis = sound.get_analysis_frames()
                 if self.autoSave:
                     self._save_analysis_json(analysis, idToLoad)# save it
+                analysis = self.load_analysis_descriptor_json(idToLoad, descriptor)# recall function
+                print analysis
+
             except ValueError:
-                print 'File does not exist'
+                print 'File in freesound database does not exist'
             enablePrint()
-                
+
         return Analysis(descriptor, analysis)
           
 
@@ -237,17 +241,11 @@ class Client(freesound.FreesoundClient):
         if idToLoad in settings.local_analysis:
             nameFile = 'analysis/' + str(idToLoad) + '.json'
             with open(nameFile) as infile:
-                parser = ijson.parse(infile)
-                vector = []
-                for prefix, type, value in parser:
-                    # this wierd if statement is due to the ijson library that outputs tupples...
-                    if (prefix == descriptor or prefix == descriptor + '.item' or prefix == descriptor + '.item.item'):
-                        if type == 'start_array':  #WARNING : this work for features like mfcc
-                            vector = []
-                        elif type == 'number':
-                            vector.append(float(value))
-                        elif type == 'end_array':
-                            analysis.append(vector)
+                parser = ijson.items(infile, descriptor)
+                analysis = []
+                for i in parser:
+                    analysis.append(i)
+                analysis = array(analysis[0],float)
             return analysis
         else:
             return None
@@ -303,6 +301,10 @@ class Basket(Client):
 
 
     def update_sounds(self):
+        """
+        TODO : update it to fit with recent changes
+
+        """
         nbSound = len(self.ids)
         Bar = ProgressBar(nbSound, LENGTH_BAR, 'Loading sounds')
         Bar.update(0)
@@ -313,6 +315,7 @@ class Basket(Client):
 
     def update_analysis(self):
         """
+        TODO : update it to fit with recent changes
         Use this method to update the analysis.
         All the analysis of the sounds that are loaded will be loaded
         

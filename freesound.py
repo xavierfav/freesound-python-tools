@@ -321,30 +321,23 @@ class Sound(FreesoundObject):
             params['descriptors']=descriptors
         return FSRequest.request(uri, params,self.client,FreesoundObject)
 
-    def get_analysis_frames(self,descriptor):
+    def get_analysis_frames(self):
         """
         Get analysis frames of one descriptor
-        This function uses ijson library in order to load a part only of the json
-        Some descriptors contain .'item' or '.item.item' at the end...
-        Maybe build a sort of mapping (similar to class URIS)
-        >>> a = sound.get_analysis_frames('lowlevel.mfcc.item.item')
+        >>> a = sound.get_analysis_frames()
         """
-        analysis_frames = []
         uri = self.analysis_frames
-        parser = ijson.parse(urlopen(uri))
-        vector = []
-        for prefix, type, value in parser:
-            # this wierd if statement is due to the ijson library that outputs tupples...
-            if (prefix == descriptor or prefix == descriptor + '.item' or prefix == descriptor + '.item.item' ):
-                if type == 'start_array':
-                    vector = []
-                elif type == 'number':
-                    vector.append(float(value))
-                elif type == 'end_array':
-                    analysis_frames.append(vector)
-        return analysis_frames
-        #params = {}
-        #return FSRequest.request(uri, params, self.client, FreesoundObject)
+        params = {}
+        return FSRequest.request(uri, params, self.client, FreesoundObject)
+
+        # analysis = []
+        # uri = self.analysis_frames
+        # parser = ijson.items(urlopen(uri), descriptor)
+        # analysis = []
+        # for i in parser:
+        #     analysis.append(i)
+        # analysis = array(analysis[0], float)
+        # return analysis
         
     def get_similar(self, **params):
         """
