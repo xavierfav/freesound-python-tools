@@ -251,13 +251,18 @@ class Client(freesound.FreesoundClient):
             return None
 
 
-class Analysis:
+class Analysis(Client):
+    pass
     def __init__(self, name=None, frames=None):
         self.name = name
         self.frames = frames
 
+    def update(self, id):
+        self.frames = Client.my_get_analysis(id, self.name)
 
-class Sound:
+
+class Sound(Client):
+    pass
     def __init__(self, sound = None, analysis = None, id = None):
         self.sound = sound
         self.analysis = [analysis]
@@ -267,6 +272,11 @@ class Sound:
         self.sound = sound
         self.analysis = [analysis]
         self.id = id
+
+    def update_analysis(self):
+        nbAnalysis = len(self.analysis)
+        for i in range(nbAnalysis):
+            self.analysis[i].update(self.id)
 
     def add_analysis(self, name, analysis):
         analysis = Analysis(name,analysis)
@@ -289,7 +299,7 @@ class Basket(Client):
         self.sounds = []
         Client.__init__(self)
     
-    def push(self,sound,analysis):
+    def push(self,sound,analysis = None):
         """
         >>> sound = c.my_get_sound(query='wind')
         >>> b.push(sound)
@@ -387,13 +397,14 @@ class Basket(Client):
     def load(self,name):
         """
         Use thise method to load a basket
+        TODO : adapt it
         """
         settings = SettingsSingleton()
         if name and name in settings.local_baskets:
             nameFile = 'baskets/' + name + '.json'
             with open(nameFile) as infile:
                 self.ids = json.load(infile)
-        nbSound = len(self.ids)
+        nbSound = len(self.sounds)
         self.sounds = [None] * nbSound
         self.analysis = [None] * nbSound
         self.update_sounds()
