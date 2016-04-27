@@ -21,7 +21,7 @@ class SettingsSingleton(object):
             self.local_sounds = []
             self.local_analysis = []
             self.local_baskets = []
-            self.autoSave = True
+            self.autoSave = True # if this is set to False, getting analysis frames won't work because 1st the json files is stored in local and then parsed with ijson
     instance = None
     def __new__(cls): # __new__ always a classmethod
         if not SettingsSingleton.instance:
@@ -109,14 +109,14 @@ class Client(freesound.FreesoundClient):
         settings = SettingsSingleton()
         sound = self._load_sound_json(idToLoad)
         if not(sound):
-            blockPrint()
+            # blockPrint()
             try:
                 sound = self.get_sound(idToLoad)
                 if settings.autoSave:
                     self._save_sound_json(sound) # save it
             except ValueError:
                 print 'File does not exist'
-            enablePrint()
+            # enablePrint()
 
         return sound
 
@@ -146,17 +146,17 @@ class Client(freesound.FreesoundClient):
 
         if type(analysis) == type(None):
             sound = self.my_get_sound(idToLoad)
-            blockPrint()
+            # blockPrint()
             try:
                 analysis = sound.get_analysis_frames()
                 if settings.autoSave:
                     self._save_analysis_json(analysis, idToLoad)# save it
                 analysis = self.load_analysis_descriptor_json(idToLoad, descriptor)# recall function
-                print analysis
 
             except ValueError:
-                print 'File in freesound database does not exist'
-            enablePrint()
+               return Analysis()
+               # print 'File in freesound database does not exist'
+            # enablePrint()
 
         return Analysis(descriptor, analysis)
 
@@ -272,7 +272,7 @@ class Sound(Client):
     def update_sound(self):
         self.sound = Client.my_get_sound(self, self.id)
 
-    def update_analysis(self, nameAnalysis):
+    def update_analysis(self, nameAnalysis): # Carefull this replace all analysis by the new one
         nbAnalysis = len(self.analysis)
         for i in range(nbAnalysis):
             self.analysis[i] = Client.my_get_analysis(self, self.id, nameAnalysis)
@@ -288,7 +288,6 @@ class Sound(Client):
         return analysis
 
 
-# TODO : change the analysis and load only one type of analysis from the json, create classes
 class Basket(Client):
     """
     A basket where sounds and analysis can be loaded
@@ -361,9 +360,9 @@ class Basket(Client):
 
         # next iteration
         while (numSound<nbSound):
-            blockPrint()
+            # blockPrint()
             results_pager = results_pager_last.next_page()
-            enablePrint()
+            # enablePrint()
             for i in results_pager:
                 self.push(self.my_get_sound(i.id))
                 numSound = numSound+1
@@ -414,67 +413,6 @@ class Basket(Client):
             self.update_sounds()
             print ''
             self.add_analysis(analysis[0]) #only 1 analysis is loaded TODO:allow multiple analysis
-
-
-    # TO RENOVE
-    def load_sounds_pager(self, results_pager):
-        """
-        Use this method to load all the sounds from a result pager in the basket (this method takes sounds from the pager - WARNING : fields will be the one asked in the request for the pager...) TODO : probably remove this function...
-
-        >>> results_pager = c.my_text_search(query='wind')
-        >>> b.load_sounds_pager(results_pager)
-
-        """
-
-        def load_sound(sound):
-            sound.name = strip_non_ascii(sound.name)
-            #self.__save_sound_json(sound) # save sound
-            self.push(sound)
-
-        nbSound = results_pager.count
-        numSound = 0 # for iteration
-        results_pager_last = results_pager
-        Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading sounds')
-
-        # 1st iteration
-        for i in results_pager:
-            load_sound(copy.copy(i))
-            numSound = numSound+1
-            Bar.update(numSound+1)
-
-        # next iteration
-        while (numSound<nbSound):
-            blockPrint()
-            results_pager = results_pager_last.next_page()
-            enablePrint()
-            for i in results_pager:
-                load_sound(copy.copy(i))
-                numSound = numSound+1
-                Bar.update(numSound+1)
-            results_pager_last = results_pager
-            #print ' \n CHANGE PAGE \n '
-
-
-    # REMOVE THIS AND ALLOW TO SAVE A BASKET IN A FOLDER (save ids only and query request and some comments...)
-    def save_sounds_json(self):
-        """
-        WARNING : does not work because it calls a private method from Client __save_sound_json
-        However, this method is useless since we save all the sounds we get from the method my_get_sound()
-        Use this method to save all loaded sounds in the basket into json files
-        """
-
-        if not os.path.exists('sounds'):
-            os.makedirs('sounds')
-
-        numSound = 0
-        nbSound = len(self.sounds)
-
-        Bar = ProgressBar(nbSound,LENGTH_BAR,'Saving sounds')
-
-        while (numSound<nbSound):
-            Client.__save_sound_json(self.sounds[numSound])
-            numSound = numSound+1
-            Bar.update(numSound+1)
 
 
 # TODO :    create a class for utilities
@@ -533,7 +471,6 @@ def strip_non_ascii(string):
 #        Use this method to save previoulsy loaded analysis to json files (name:sound_id)
 #        Care : if the loaded sounds are not corresponding with the loaded analysis, wrong name will be given to json files...
 #
-#        TODO : fix it to remove the care problem...
 #        """
 #
 #        if not os.path.exists('analysis'):
@@ -582,7 +519,6 @@ def strip_non_ascii(string):
 #    def load_sounds_json(self,idsToLoad):
 #        """
 #        Use this method to load sounds from all json files
-#        TODO : add param to load only certain sounds
 #        ADD A GENERAL JSON WHERE ALL TITLES/TAGS/ID ARE IN ORDER TO BE ABLE TO SEARCH TEXT, ...
 #        """
 #
