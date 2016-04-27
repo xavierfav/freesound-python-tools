@@ -269,6 +269,9 @@ class Sound(Client):
         self.analysis = [analysis]
         self.id = id
 
+    def update_sound(self):
+        self.sound = Client.my_get_sound(self, self.id)
+
     def update_analysis(self, nameAnalysis):
         nbAnalysis = len(self.analysis)
         for i in range(nbAnalysis):
@@ -279,8 +282,10 @@ class Sound(Client):
         self.analysis.append(analysis)
 
     def show_analysis_names(self):
+        analysis = []
         for i in self.analysis:
-            print i.name
+            analysis.append(i.name)
+        return analysis
 
 
 # TODO : change the analysis and load only one type of analysis from the json, create classes
@@ -304,19 +309,16 @@ class Basket(Client):
         self.sounds.append(Sound(sound,analysis,sound.id))
 
 
-
-
     def update_sounds(self):
         """
         TODO : update it to fit with recent changes
 
         """
-        nbSound = len(self.ids)
+        nbSound = len(self.sounds)
         Bar = ProgressBar(nbSound, LENGTH_BAR, 'Loading sounds')
         Bar.update(0)
         for i in range(nbSound):
-            if not(self.sounds[i]):
-                self.sounds[i] = self.my_get_sound(self.ids[i])
+            self.sounds[i].update_sound()
             Bar.update(i + 1)
 
     def add_analysis(self,descriptor):
@@ -371,21 +373,25 @@ class Basket(Client):
 
     def save(self,name):
         """
-        TODO : adapt it
         Use this method to save a basket
+        Only ids and analysis name(s) are saved in a list [ [id1,...idn], [analysis, ...] ]
+        TODO : change it and save it as a dict (more flexible and stable regarding changes)
         """
         settings = SettingsSingleton()
         if name and not (name in settings.local_baskets):
+            ids = []
+            nbSounds = len(self.sounds)
+            for i in range(nbSounds):
+                ids.append(self.sounds[i].id)
+
+            basket = [ids]
+            basket.append(self.sounds[0].show_analysis_names())
+
             nameFile = 'baskets/' + name + '.json'
             with open(nameFile, 'w') as outfile:
-                json.dump(self.ids, outfile)
+                json.dump(basket, outfile)
+
             settings.local_baskets.append(name)
-            nbSound = len(self.ids)
-            Bar = ProgressBar(nbSound, LENGTH_BAR, 'Loading sounds')
-            Bar.update(0)
-            for i in range(nbSound):
-                Client._save_sound_json(self, self.sounds[i])
-                Client._save_analysis_json(self, self.analysis[i],self.ids[i])
         else:
             print 'give a name that does not exist to your basket'
 
@@ -394,17 +400,20 @@ class Basket(Client):
         Use thise method to load a basket
         TODO : adapt it
         """
+        self.sounds = []
         settings = SettingsSingleton()
         if name and name in settings.local_baskets:
             nameFile = 'baskets/' + name + '.json'
             with open(nameFile) as infile:
-                self.ids = json.load(infile)
-        nbSound = len(self.sounds)
-        self.sounds = [None] * nbSound
-        self.analysis = [None] * nbSound
-        self.update_sounds()
-        print ''
-        self.update_analysis()
+                basket = json.load(infile)
+            ids = basket[0]
+            analysis = basket[1]
+            nbSounds = len(ids)
+            for i in range(nbSounds):
+                self.sounds.append(Sound(None, None, ids[i]))
+            self.update_sounds()
+            print ''
+            self.add_analysis(analysis[0]) #only 1 analysis is loaded TODO:allow multiple analysis
 
 
     # TO RENOVE
