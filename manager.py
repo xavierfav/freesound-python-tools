@@ -85,6 +85,12 @@ class Client(freesound.FreesoundClient):
             print "Your api key as been stored in api_key.txt file"
             self.__init__()
 
+    @property
+    def local_baskets(self):
+        settings = SettingsSingleton()
+        return settings.local_baskets
+
+
     def my_text_search(self, **param):
         """
         Call text_search method from freesound.py and add all the defaults fields and page size parameters
@@ -298,6 +304,29 @@ class Basket(Client):
     def __init__(self):
         self.sounds = []
         Client.__init__(self)
+
+    @property
+    def ids(self):
+        ids = []
+        for i in range(len(self.sounds)):
+            ids.append(self.sounds[i].id)
+        return ids
+
+    def __add__(self, other):
+        sumBasket = Basket()
+        for i in range(len(self.sounds)):
+            sumBasket.sounds.append(self.sounds[i])
+        for i in range(len(other.sounds)):
+            sumBasket.sounds.append(other.sounds[i])
+        sumBasket.remove_duplicate()
+        return sumBasket
+
+    def remove_duplicate(self):
+        ids = []
+        for obj in self.sounds:
+            if obj.id not in ids:
+                ids.append(obj.id)
+                self.sounds.remove(obj)
 
     def push(self,sound,analysis = None):
         """
