@@ -144,14 +144,16 @@ class Client(freesound.FreesoundClient):
         >>> analysis = c.my_get_analysis(id)
         """
         settings = SettingsSingleton()
+        analysis = None
         if idToLoad not in settings.local_analysis:
             allAnalysis = self._load_analysis_freesound(idToLoad)
             if settings.autoSave:
                 self._save_analysis_json(allAnalysis, idToLoad)
-            splitDescriptors = descriptor.split(".")
-            analysis = allAnalysis
-            for desc in splitDescriptors:
-                analysis = getattr(analysis, desc)
+            if allAnalysis:
+                splitDescriptors = descriptor.split(".")
+                analysis = allAnalysis
+                for desc in splitDescriptors:
+                    analysis = getattr(analysis, desc)
         else:
             analysis = self._load_analysis_descriptor_json(idToLoad, descriptor)
 
