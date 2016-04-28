@@ -101,7 +101,6 @@ class Client(freesound.FreesoundClient):
         >>> result = c.my_text_search(query="wind")
 
         """
-
         results_pager = self.text_search(fields="id",page_size=150,**param)
         #self.text_search(fields="id,name,url,tags,description,type,previews,filesize,bitrate,bitdepth,duration,samplerate,username,comments,num_comments,analysis_frames",page_size=150,**param)
         return results_pager
@@ -113,24 +112,20 @@ class Client(freesound.FreesoundClient):
         >>> sound = c.my_get_sound(id)
         """
         settings = SettingsSingleton()
-        sound = self._load_sound_json(idToLoad)
-        if not(sound):
-            # blockPrint()
-            try:
-                sound = self.get_sound(idToLoad)
-                if settings.autoSave:
-                    self._save_sound_json(sound) # save it
-            except ValueError:
-                print 'File does not exist'
-            # enablePrint()
+        if idToLoad not in settings.local_sounds:
+            sound = self._load_sound_freesound(idToLoad)
+            if settings.autoSave:
+                self._save_sound_json(sound)  # save it
+        else:
+            sound = self._load_sound_json(idToLoad)
 
         return sound
+
 
     def my_get_sounds(self,idsToLoad):
         """
         Use this method to get many sounds from local or freesound
         """
-
         sounds = []
         nbSound = len(idsToLoad)
         Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading sounds')
@@ -141,6 +136,7 @@ class Client(freesound.FreesoundClient):
 
         return sounds
 
+
     def my_get_analysis(self,idToLoad,descriptor):
         """
         Use this method to get an analysis from local or freesound if needed
@@ -148,30 +144,25 @@ class Client(freesound.FreesoundClient):
         >>> analysis = c.my_get_analysis(id)
         """
         settings = SettingsSingleton()
-        analysis = self.load_analysis_descriptor_json(idToLoad,descriptor)
-
-        if type(analysis) == type(None):
-            sound = self.my_get_sound(idToLoad)
-            # blockPrint()
-            try:
-                analysis = sound.get_analysis_frames()
-                if settings.autoSave:
-                    self._save_analysis_json(analysis, idToLoad)# save it
-                analysis = self.load_analysis_descriptor_json(idToLoad, descriptor)# recall function
-
-            except ValueError:
-               return Analysis()
-               # print 'File in freesound database does not exist'
-            # enablePrint()
+        if idToLoad not in settings.local_analysis:
+            allAnalysis = self._load_analysis_freesound(idToLoad)
+            if settings.autoSave:
+                self._save_analysis_json(allAnalysis, idToLoad)
+            splitDescriptors = descriptor.split(".")
+            analysis = allAnalysis
+            for desc in splitDescriptors:
+                analysis = getattr(analysis, desc)
+        else:
+            analysis = self._load_analysis_descriptor_json(idToLoad, descriptor)
 
         return Analysis(descriptor, analysis)
 
 
     def my_get_analysiss(self,idsToLoad):
         """
+        TODO : adapt it
         Use this method to get many analysis from local or freesound
         """
-
         analysis = []
         nbAnalysis = len(idsToLoad)
         Bar = ProgressBar(nbAnalysis,LENGTH_BAR,'Loading sounds')
@@ -210,6 +201,14 @@ class Client(freesound.FreesoundClient):
             return None
 
 
+    def _load_sound_freesound(self, idToLoad):
+        try:
+            sound = self.get_sound(idToLoad)
+            return sound
+        except ValueError:
+            return None
+
+
     def _save_analysis_json(self,analysis,idSound):
         """
         save an analysis into a json file
@@ -222,6 +221,7 @@ class Client(freesound.FreesoundClient):
                 json.dump(analysis.as_dict(), outfile)
             settings.local_analysis.append(int(idSound))
             settings.local_analysis.sort()
+
 
     def _load_analysis_json(self,idToLoad):
         """
@@ -236,11 +236,20 @@ class Client(freesound.FreesoundClient):
         else:
             return None
 
-    def load_analysis_descriptor_json(self, idToLoad, descriptor):
+
+    def _load_analysis_freesound(self, idToLoad):
+        sound = self.my_get_sound(idToLoad)
+        try:
+            allAnalysis = sound.get_analysis_frames()
+            return allAnalysis
+        except ValueError:
+            return None
+
+
+    def _load_analysis_descriptor_json(self, idToLoad, descriptor):
         """
         load analysis frames of a descriptor
         TODO : add this function in the workflow, add class with possible descriptors
-        WARNING : this work for features like mfcc
         """
         analysis = []
         settings = SettingsSingleton()
@@ -267,7 +276,7 @@ class Sound(Client):
     pass
     def __init__(self, sound = None, analysis = None, id = None):
         self.sound = sound
-        self.analysis = [Analysis()]
+        self.analysis = [analysis]
         self.id = id
 
     def actualize(self, sound=None, analysis=None, id=None):
