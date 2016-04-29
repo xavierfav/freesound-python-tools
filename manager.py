@@ -13,8 +13,10 @@ import json
 import ijson
 from numpy import array
 from functools import reduce
+import cPickle
 
 LENGTH_BAR = 30
+
 
 class SettingsSingleton(object):
     class __OnlyOne:
@@ -22,6 +24,7 @@ class SettingsSingleton(object):
             self.local_sounds = []
             self.local_analysis = []
             self.local_baskets = []
+            self.local_baskets_pickle = []
             self.autoSave = True # if this is set to False, getting analysis frames won't work because 1st the json files is stored in local and then parsed with ijson
     instance = None
     def __new__(cls): # __new__ always a classmethod
@@ -37,7 +40,7 @@ class SettingsSingleton(object):
 
 class Client(freesound.FreesoundClient):
     """
-    Create FreesoundClient and set authentification
+    Create FreesoundClient and set authentication
 
     """
 
@@ -51,17 +54,21 @@ class Client(freesound.FreesoundClient):
             os.makedirs('analysis')
         if not os.path.exists('baskets'):
             os.makedirs('baskets')
+        if not os.path.exists('baskets_pickle'):
+            os.mkdir('baskets_pickle')
 
         # create variable with present local sounds & analysis
         # (reduce time consumption for function loading json files)
         files_sounds = os.listdir('./sounds/')
         files_analysis = os.listdir('./analysis/')
         files_baskets = os.listdir('./baskets/')
+        files_baskets_pickle = os.listdir('./baskets_pickle/')
 
         settings = SettingsSingleton()
         settings.local_sounds = []
         settings.local_analysis = []
         settings.local_baskets = []
+        settings.local_baskets_pickle = []
 
         for i in files_sounds:
             settings.local_sounds.append(int(i[:-5]))
@@ -69,6 +76,8 @@ class Client(freesound.FreesoundClient):
             settings.local_analysis.append(int(j[:-5]))
         for m in files_baskets:
             settings.local_baskets.append(m[:-5])
+        for n in files_baskets_pickle:
+            settings.local_baskets_pickle.append(n)
         settings.local_sounds.sort()
         settings.local_analysis.sort()
 
@@ -175,6 +184,40 @@ class Client(freesound.FreesoundClient):
             Bar.update(i+1)
 
         return analysis
+
+
+    def save_pickle_basket(self, name):
+        """
+        Use this method to save a basket in a pickle file
+        TODO : generalize this method for all cain of object...
+        """
+        settings = SettingsSingleton()
+        if name and not (name in settings.local_baskets_pickle):
+            nameFile = 'baskets_pickle/' + name
+            with open(nameFile, 'w') as outfile:
+                cPickle.dump(self, outfile)
+            settings.local_baskets_pickle.append(name)
+        else:
+            overwrite = raw_input(name + ' basket already exists. Do you want to replace it ? (y/n)')
+            if overwrite == 'y':
+                settings.local_baskets_pickle.remove(name)
+                self.save_pickle_basket(name)
+            else:
+                print 'Basket was not saved'
+
+    def load_pickle_basket(self, name):
+        """
+        Use thise method to load a basket from a pickle (faster than recreating from json)
+        TODO : generalize this method for all cain of object...
+        """
+        settings = SettingsSingleton()
+        if name and name in settings.local_baskets_pickle:
+            nameFile = 'baskets_pickle/' + name
+            with open(nameFile) as infile:
+                obj = cPickle.load(infile)
+            return obj
+        else:
+            print '%s basket does not exist' % name
 
 
     def _save_sound_json(self,sound):
@@ -469,6 +512,9 @@ class Basket(Client):
             self.update_sounds()
             self.analysis_names = basket[1]
             self.update_analysis()
+        else:
+            print '%s basket does not exist' % name
+
 
 
 # TODO :    create a class for utilities
