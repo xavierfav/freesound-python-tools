@@ -12,6 +12,7 @@ import os
 import json
 import ijson
 from numpy import array
+from functools import reduce
 
 LENGTH_BAR = 30
 
@@ -157,7 +158,7 @@ class Client(freesound.FreesoundClient):
         else:
             analysis = self._load_analysis_descriptor_json(idToLoad, descriptor)
 
-        return Analysis(descriptor, analysis)
+        return analysis
 
 
     def my_get_analysiss(self,idsToLoad):
@@ -268,41 +269,38 @@ class Client(freesound.FreesoundClient):
             return None
 
 
-class Analysis(Client):
-    pass
-    def __init__(self, name=None, frames=None):
-        self.name = name
-        self.frames = frames
+class Analysis():
+    def __init__(self, json_dict = None):
+        if not json_dict:
+            with open('analysis_template.json') as infile:
+                json_dict = json.load(infile)
 
-class Sound(Client):
-    pass
-    def __init__(self, sound = None, analysis = None, id = None):
-        self.sound = sound
-        self.analysis = [analysis]
-        self.id = id
+        self.json_dict = json_dict
+        def replace_dashes(d):
+            for k, v in d.items():
+                if "-" in k:
+                    d[k.replace("-", "_")] = d[k]
+                    del d[k]
+                if isinstance(v, dict): replace_dashes(v)
 
-    def actualize(self, sound=None, analysis=None, id=None):
-        self.sound = sound
-        self.analysis = [analysis]
-        self.id = id
+        replace_dashes(json_dict)
+        self.__dict__.update(json_dict)
+        for k, v in json_dict.items():
+            if isinstance(v, dict):
+                self.__dict__[k] = Analysis(v)
 
-    def update_sound(self):
-        self.sound = Client.my_get_sound(self, self.id)
+    def rsetattr(self, attr, val):
+        pre, _, post = attr.rpartition('.')
+        return setattr(self.rgetattr(pre) if pre else self, post, val)
 
-    def update_analysis(self, nameAnalysis): # Carefull this replace all analysis by the new one
-        nbAnalysis = len(self.analysis)
-        for i in range(nbAnalysis):
-            self.analysis[i] = Client.my_get_analysis(self, self.id, nameAnalysis)
-
-    def add_analysis(self, name, analysis):
-        analysis = Analysis(name,analysis)
-        self.analysis.append(analysis)
-
-    def show_analysis_names(self):
-        analysis = []
-        for i in self.analysis:
-            analysis.append(i.name)
-        return analysis
+    sentinel = object()
+    def rgetattr(self, attr, default=sentinel):
+        if default is self.sentinel:
+            _getattr = getattr
+        else:
+            def _getattr(obj, name):
+                return getattr(obj, name, default)
+        return reduce(_getattr, [self] + attr.split('.'))
 
 
 class Basket(Client):
@@ -314,14 +312,17 @@ class Basket(Client):
 
     def __init__(self):
         self.sounds = []
+        self.analysis = Analysis()
+        self.ids = []
+        self.analysis_names = []
         Client.__init__(self)
 
-    @property
-    def ids(self):
-        ids = []
-        for i in range(len(self.sounds)):
-            ids.append(self.sounds[i].id)
-        return ids
+    # @property
+    # def ids(self): # now useless...
+    #     ids = []
+    #     for i in range(len(self.sounds)):
+    #         ids.append(self.sounds[i].id)
+    #     return ids
 
     def __add__(self, other):
         sumBasket = Basket()
@@ -339,13 +340,14 @@ class Basket(Client):
                 ids.append(obj.id)
                 self.sounds.remove(obj)
 
-    def push(self,sound,analysis = None):
+    def push(self,sound):
         """
         >>> sound = c.my_get_sound(query='wind')
         >>> b.push(sound)
 
         """
-        self.sounds.append(Sound(sound,analysis,sound.id))
+        self.sounds.append(sound)
+        self.ids.append(sound.id)
 
 
     def update_sounds(self):
@@ -353,29 +355,46 @@ class Basket(Client):
         TODO : update it to fit with recent changes
 
         """
-        nbSound = len(self.sounds)
+        nbSound = len(self.ids)
         Bar = ProgressBar(nbSound, LENGTH_BAR, 'Loading sounds')
         Bar.update(0)
         for i in range(nbSound):
-            self.sounds[i].update_sound()
+            self.sounds.append(self.my_get_sound(self.ids[i]))
             Bar.update(i + 1)
 
-    def add_analysis(self,descriptor):
+    def add_analysis(self, descriptor):
         """
         Use this method to update the analysis.
-        All the analysis of the sounds that are loaded will be loaded
+        All the analysis of the loaded sound ids will be loaded
 
         >>> results_pager = c.my_text_search(query='wind')
         >>> b.load_sounds(results_pager)
         >>> b.add_analysis('lowlevel.mfcc')
 
         """
-        nbSound = len(self.sounds)
-        Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading analysis')
-        Bar.update(0)
-        for i in range(nbSound):
-            self.sounds[i].update_analysis(descriptor)
-            Bar.update(i+1)
+        if descriptor in self.analysis_names:
+            print 'The %s analysis are already loaded' % descriptor
+        else:
+            nbSound = len(self.ids)
+            allFrames = []
+            Bar = ProgressBar(nbSound,LENGTH_BAR, 'Loading ' + descriptor + ' analysis')
+            Bar.update(0)
+            for i in range(nbSound):
+                allFrames.append(self.my_get_analysis(self.ids[i], descriptor))
+                Bar.update(i+1)
+            self.analysis_names.append(descriptor)
+            self.analysis.rsetattr(descriptor, allFrames)
+
+    def update_analysis(self):
+        for nameAnalysis in self.analysis_names:
+            allFrames = self.analysis.rgetattr(nameAnalysis)
+            nbAnalysis = len(allFrames)
+            nbAnalysisToLoad = len(self.ids) - nbAnalysis
+            Bar = ProgressBar(nbAnalysisToLoad, LENGTH_BAR, 'Loading ' + nameAnalysis + ' analysis')
+            Bar.update(0)
+            for i in range(nbAnalysisToLoad):
+                Bar.update(i + 1)
+                allFrames.append(self.my_get_analysis(self.ids[i+nbAnalysis], nameAnalysis))
 
 
     def load_sounds(self, results_pager):
@@ -410,7 +429,7 @@ class Basket(Client):
             results_pager_last = results_pager
 
 
-    def save(self,name):
+    def save(self, name):
         """
         Use this method to save a basket
         Only ids and analysis name(s) are saved in a list [ [id1,...idn], [analysis, ...] ]
@@ -418,21 +437,19 @@ class Basket(Client):
         """
         settings = SettingsSingleton()
         if name and not (name in settings.local_baskets):
-            ids = []
-            nbSounds = len(self.sounds)
-            for i in range(nbSounds):
-                ids.append(self.sounds[i].id)
-
-            basket = [ids]
-            basket.append(self.sounds[0].show_analysis_names())
-
+            basket = [self.ids]
+            basket.append(self.analysis_names)
             nameFile = 'baskets/' + name + '.json'
             with open(nameFile, 'w') as outfile:
                 json.dump(basket, outfile)
-
             settings.local_baskets.append(name)
         else:
-            print 'give a name that does not exist to your basket'
+            overwrite = raw_input(name + ' basket already exists. Do you want to replace it ? (y/n)')
+            if overwrite == 'y':
+                settings.local_baskets.remove(name)
+                self.save(name)
+            else:
+                print 'Basket was not saved'
 
     def load(self,name):
         """
@@ -446,13 +463,12 @@ class Basket(Client):
             with open(nameFile) as infile:
                 basket = json.load(infile)
             ids = basket[0]
-            analysis = basket[1]
             nbSounds = len(ids)
             for i in range(nbSounds):
-                self.sounds.append(Sound(None, None, ids[i]))
+                self.ids.append(ids[i])
             self.update_sounds()
-            print ''
-            self.add_analysis(analysis[0]) #only 1 analysis is loaded TODO:allow multiple analysis
+            self.analysis_names = basket[1]
+            self.update_analysis()
 
 
 # TODO :    create a class for utilities
@@ -472,6 +488,7 @@ class ProgressBar:
         self.valmax = valmax
         self.maxbar = maxbar
         self.title  = title
+        print ''
 
     def update(self, val):
         import sys
@@ -506,6 +523,37 @@ def strip_non_ascii(string):
 
 
 #propably garbadge
+# class Sound(Client):
+#     pass
+#     def __init__(self, sound = None, analysis = None, id = None):
+#         self.sound = sound
+#         self.analysis = [analysis]
+#         self.id = id
+#
+#     def actualize(self, sound=None, analysis=None, id=None):
+#         self.sound = sound
+#         self.analysis = [analysis]
+#         self.id = id
+#
+#     def update_sound(self):
+#         self.sound = Client.my_get_sound(self, self.id)
+#
+#     def update_analysis(self, nameAnalysis): # Carefull this replace all analysis by the new one
+#         nbAnalysis = len(self.analysis)
+#         for i in range(nbAnalysis):
+#             self.analysis[i] = Client.my_get_analysis(self, self.id, nameAnalysis)
+#
+#     def add_analysis(self, name, analysis):
+#         analysis = Analysis(name,analysis)
+#         self.analysis.append(analysis)
+#
+#     def show_analysis_names(self):
+#         analysis = []
+#         for i in self.analysis:
+#             analysis.append(i.name)
+#         return analysis
+#
+#
 #    def save_analysis_json(self):
 #        """
 #        Use this method to save previoulsy loaded analysis to json files (name:sound_id)
