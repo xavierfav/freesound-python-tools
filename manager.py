@@ -349,8 +349,11 @@ class Analysis():
         return reduce(_getattr, [self] + attr.split('.'))
 
     def remove(self, index, descriptor):
-        analysis = self.rgetattr(descriptor)
-        del analysis[index]
+        if index == 'all':
+            self.rsetattr(descriptor, [])
+        else:
+            analysis = self.rgetattr(descriptor)
+            del analysis[index]
 
 
 class Basket(Client):
@@ -455,7 +458,7 @@ class Basket(Client):
 
     def remove_analysis(self, descriptor):
         if descriptor in self.analysis_names:
-            self.analysis.rsetattr(descriptor, [])
+            self.analysis.remove('all', descriptor)
             self.analysis_names.remove(descriptor)
 
     def load_sounds(self, results_pager):
