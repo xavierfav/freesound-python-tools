@@ -77,6 +77,8 @@ class Client(freesound.FreesoundClient):
             os.makedirs('baskets')
         if not os.path.exists('baskets_pickle'):
             os.mkdir('baskets_pickle')
+        if not os.path.exists('previews'):
+            os.mkdir('previews')
 
         # create variable with present local sounds & analysis
         # (reduce time consumption for function loading json files)
@@ -346,6 +348,10 @@ class Analysis():
                 return getattr(obj, name, default)
         return reduce(_getattr, [self] + attr.split('.'))
 
+    def remove(self, index, descriptor):
+        analysis = self.rgetattr(descriptor)
+        del analysis[index]
+
 
 class Basket(Client):
     """
@@ -365,29 +371,42 @@ class Basket(Client):
         Concatenate two baskets
         TODO : adapt it to new changes & make sure the order is not broken
         """
-        sumBasket = Basket()
-        for i in range(len(self.sounds)):
-            sumBasket.sounds.append(self.sounds[i])
+        sumBasket = self
         for i in range(len(other.sounds)):
+            sumBasket.ids.append(other.ids[i])
             sumBasket.sounds.append(other.sounds[i])
         sumBasket.remove_duplicate()
         return sumBasket
 
     def remove_duplicate(self):
-        ids = []
-        for obj in self.sounds:
-            if obj.id not in ids:
-                ids.append(obj.id)
-                self.sounds.remove(obj)
+        # TODO : add method to concatenate analysis in Analysis() (won't have to reload json...)
+        ids_old = self.ids
+        sounds_old = self.sounds
+        self.ids = []
+        self.sounds = []
+        nbSounds = len(ids_old)
+        for i in range(nbSounds):
+            if ids_old[i] not in self.ids:
+                self.ids.append(ids_old[i])
+                self.sounds.append(sounds_old[i])
+        self.update_analysis()
 
-    def push(self,sound):
+    def push(self, sound):
         """
         >>> sound = c.my_get_sound(query='wind')
         >>> b.push(sound)
 
         """
+        sound.name = strip_non_ascii(sound.name)
         self.sounds.append(sound)
         self.ids.append(sound.id)
+
+    def remove(self, index_list):
+        for i in index_list:
+            del self.ids[i]
+            del self.sounds[i]
+            for descriptor in self.analysis_names:
+                self.analysis.remove(i, descriptor)
 
     def update_sounds(self):
         """
@@ -434,6 +453,11 @@ class Basket(Client):
                 Bar.update(i + 1)
                 allFrames.append(self.my_get_analysis(self.ids[i+nbAnalysis], nameAnalysis))
 
+    def remove_analysis(self, descriptor):
+        if descriptor in self.analysis_names:
+            self.analysis.rsetattr(descriptor, [])
+            self.analysis_names.remove(descriptor)
+
     def load_sounds(self, results_pager):
         """
         Use this method to load all the sounds from a result pager int the basket
@@ -461,6 +485,15 @@ class Basket(Client):
                 numSound = numSound+1
                 Bar.update(numSound+1)
             results_pager_last = results_pager
+
+    def retrieve_previews(self):
+        folder = './previews/'
+        nbSounds = len(self.sounds)
+        Bar = ProgressBar(nbSounds, LENGTH_BAR, 'Downloading previews')
+        Bar.update(0)
+        for i in range(nbSounds):
+            Bar.update(i+1)
+            self.sounds[i].retrieve_preview(folder)
 
     def save(self, name):
         """
