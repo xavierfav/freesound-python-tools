@@ -14,6 +14,10 @@ import ijson
 from numpy import array
 from functools import reduce
 import cPickle
+import sys
+reload(sys)
+sys.setdefaultencoding("utf-8")
+
 
 LENGTH_BAR = 30
 
@@ -400,7 +404,7 @@ class Basket(Client):
         >>> b.push(sound)
 
         """
-        sound.name = strip_non_ascii(sound.name)
+        #sound.name = strip_non_ascii(sound.name)
         self.sounds.append(sound)
         self.ids.append(sound.id)
 
