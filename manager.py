@@ -14,6 +14,7 @@ import ijson
 from numpy import array
 from functools import reduce
 import cPickle
+from urllib2 import URLError
 import sys
 reload(sys)
 sys.setdefaultencoding("utf-8")
@@ -293,6 +294,10 @@ class Client(freesound.FreesoundClient):
             allAnalysis = sound.get_analysis_frames()
             return allAnalysis
         except ValueError:
+            return None
+        except freesound.FreesoundException:
+            return None
+        except URLError:
             return None
 
     def _load_analysis_descriptor_json(self, idToLoad, descriptor):
