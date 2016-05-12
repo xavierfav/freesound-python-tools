@@ -2,10 +2,10 @@ build
 *.pyc
 *.bak
 *.pickle
-*api_key.txt
 /analysis
 /sounds
 /baskets
 /baskets_pickle
 /previews
 .idea/
+api_key.py

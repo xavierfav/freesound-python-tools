@@ -18,12 +18,16 @@ from urllib2 import URLError
 import sys
 reload(sys)
 sys.setdefaultencoding("utf-8")
+import subprocess
+import ast
 
-
-LENGTH_BAR = 30
+LENGTH_BAR = 30 # length of the progress bar
 
 
 class SettingsSingleton(object):
+    """
+    Singleton object pattern to access/modify settings from everywhere
+    """
     class __OnlyOne:
         def __init__(self):
             self.local_sounds = []
@@ -42,11 +46,13 @@ class SettingsSingleton(object):
         return setattr(self.instance, name)
 
 
-
+#_________________________________________________________________#
+#                         Client class                            #
+#_________________________________________________________________#
 class Client(freesound.FreesoundClient):
     """
-    Create FreesoundClient and set authentification
-    The first time you authentificate, it will ask for your Freesound api key
+    Create FreesoundClient and set authentication
+    The first time you authenticate, it will ask for your Freesound api key
 
     >>> import manager
     >>> c = manager.Client()
@@ -54,66 +60,35 @@ class Client(freesound.FreesoundClient):
     Your api key as been stored in api_key.txt file
     """
     def __init__(self):
-        self.scan_folder()
-        try:
-            temp = open('api_key.txt').read().splitlines()
-            self.set_token(temp[0],"token")
-        except IOError:
-            api_key = raw_input("Enter your api key: ")
-            temp = open('api_key.txt', 'w')
-            temp.write(api_key)
-            temp.close()
-            print "Your api key as been stored in api_key.txt file"
-            self.__init__()
+        self.oauth = ''
+        self._scan_folder()
+        self._init_oauth()
 
-    @staticmethod
-    def scan_folder():
-        """
-        This method is used to scan all content folders
-        """
+    # ________________________________________________________________________#
+    #____________________________ local folders ______________________________#
+
+    def _local_(self, what):
         settings = SettingsSingleton()
-
-        # Check if the storing folder are here
-        if not os.path.exists('sounds'):
-            os.makedirs('sounds')
-        if not os.path.exists('analysis'):
-            os.makedirs('analysis')
-        if not os.path.exists('baskets'):
-            os.makedirs('baskets')
-        if not os.path.exists('baskets_pickle'):
-            os.mkdir('baskets_pickle')
-        if not os.path.exists('previews'):
-            os.mkdir('previews')
-
-        # create variable with present local sounds & analysis
-        # (reduce time consumption for function loading json files)
-        files_sounds = os.listdir('./sounds/')
-        files_analysis = os.listdir('./analysis/')
-        files_baskets = os.listdir('./baskets/')
-        files_baskets_pickle = os.listdir('./baskets_pickle/')
-
-        settings = SettingsSingleton()
-        settings.local_sounds = []
-        settings.local_analysis = []
-        settings.local_baskets = []
-        settings.local_baskets_pickle = []
-
-        for i in files_sounds:
-            settings.local_sounds.append(int(i[:-5]))
-        for j in files_analysis:
-            settings.local_analysis.append(int(j[:-5]))
-        for m in files_baskets:
-            settings.local_baskets.append(m[:-5])
-        for n in files_baskets_pickle:
-            settings.local_baskets_pickle.append(n)
-        settings.local_sounds.sort()
-        settings.local_analysis.sort()
+        return getattr(settings, what)
 
     @property
     def local_baskets(self):
-        settings = SettingsSingleton()
-        return settings.local_baskets
+        return self._local_('local_baskets')
 
+    @property
+    def local_sounds(self):
+        return self._local_('local_sounds')
+
+    @property
+    def local_analysis(self):
+        return self._local_('local_analysis')
+
+    @property
+    def local_baskets_pickle(self):
+        return self._local_('local_baskets_pickle')
+
+    #________________________________________________________________________#
+    # __________________________ Users functions ____________________________#
     def my_text_search(self, **param):
         """
         Call text_search method from freesound.py and add all the defaults fields and page size parameters
@@ -226,6 +201,10 @@ class Client(freesound.FreesoundClient):
         else:
             print '%s basket does not exist' % name
 
+    # ________________________________________________________________________#
+    # _______________________ Private functions ______________________________#
+    # ____ save/load json local/Freesound, authentication, scan folder _______#
+
     def _save_sound_json(self, sound):
         """
         sSve a sound into a json file
@@ -319,7 +298,110 @@ class Client(freesound.FreesoundClient):
         else:
             return None
 
+    @staticmethod
+    def _scan_folder():
+        """
+        This method is used to scan all content folders
+        """
+        settings = SettingsSingleton()
 
+        # Check if the storing folder are here
+        if not os.path.exists('sounds'):
+            os.makedirs('sounds')
+        if not os.path.exists('analysis'):
+            os.makedirs('analysis')
+        if not os.path.exists('baskets'):
+            os.makedirs('baskets')
+        if not os.path.exists('baskets_pickle'):
+            os.mkdir('baskets_pickle')
+        if not os.path.exists('previews'):
+            os.mkdir('previews')
+
+        # create variable with present local sounds & analysis
+        # (reduce time consumption for function loading json files)
+        files_sounds = os.listdir('./sounds/')
+        files_analysis = os.listdir('./analysis/')
+        files_baskets = os.listdir('./baskets/')
+        files_baskets_pickle = os.listdir('./baskets_pickle/')
+
+        settings = SettingsSingleton()
+        settings.local_sounds = []
+        settings.local_analysis = []
+        settings.local_baskets = []
+        settings.local_baskets_pickle = []
+
+        for i in files_sounds:
+            settings.local_sounds.append(int(i[:-5]))
+        for j in files_analysis:
+            settings.local_analysis.append(int(j[:-5]))
+        for m in files_baskets:
+            settings.local_baskets.append(m[:-5])
+        for n in files_baskets_pickle:
+            settings.local_baskets_pickle.append(n)
+        settings.local_sounds.sort()
+        settings.local_analysis.sort()
+
+    def _init_oauth(self):
+        try:
+            import api_key
+            client_id = api_key.client_id
+            token = api_key.token
+            refresh_oauth = api_key.refresh_oauth
+
+            req = 'curl -X POST -d "client_id=' + client_id + '&client_secret=' + token + \
+                  '&grant_type=refresh_token&refresh_token=' + refresh_oauth + '" ' + \
+                  '"https://www.freesound.org/apiv2/oauth2/access_token/"'
+
+            output = subprocess.check_output(req, shell=True)
+            output = ast.literal_eval(output)
+            access_oauth = output['access_token']
+            refresh_oauth = output['refresh_token']
+
+            self._write_api_key(client_id, token, access_oauth, refresh_oauth)
+            self.token = token
+            self.client_id = client_id
+            self.access_oauth = access_oauth
+
+        except:
+            client_id = raw_input('Enter your client id: ')
+            token = raw_input('Enter your api key: ')
+            code = raw_input('Please go to: https://www.freesound.org/apiv2/oauth2/authorize/?client_id=' + client_id + \
+                  '&response_type=code&state=xyz and enter the ginve code: ')
+
+            req = 'curl -X POST -d "client_id=' + client_id + '&client_secret=' + token + \
+                  '&grant_type=authorization_code&code=' + code + '" ' + \
+                  '"https://www.freesound.org/apiv2/oauth2/access_token/"'
+
+            output = subprocess.check_output(req, shell=True)
+            output = ast.literal_eval(output)
+            access_oauth = output['access_token']
+            refresh_oauth = output['refresh_token']
+
+            self._write_api_key(client_id, token, access_oauth, refresh_oauth)
+            self.token = token
+            self.client_id = client_id
+            self.access_oauth = access_oauth
+
+    @staticmethod
+    def _write_api_key(client_id, token, access_oauth, refresh_oauth):
+        file = open('api_key.py', 'w')
+        file.write('client_id = "' + client_id + '"')
+        file.write('\n')
+        file.write('token = "' + token + '"')
+        file.write('\n')
+        file.write('access_oauth = "' + access_oauth + '"')
+        file.write('\n')
+        file.write('refresh_oauth = "' + refresh_oauth + '"')
+        file.close()
+
+    def _set_oauth(self):
+        self.set_token(self.oauth, auth_type='oauth')
+
+    def _set_token(self):
+        self.set_token(self.token)
+#_________________________________________________________________#
+#                       Analysis class                            #
+#_________________________________________________________________#
 class Analysis():
     """
     Analysis nested object. Holds all the analysis of many sounds
@@ -365,6 +447,9 @@ class Analysis():
             del analysis[index]
 
 
+#_________________________________________________________________#
+#                        Basket class                             #
+#_________________________________________________________________#
 class Basket(Client):
     """
     A basket where sounds and analysis can be loaded
@@ -387,10 +472,10 @@ class Basket(Client):
         for i in range(len(other.sounds)):
             sumBasket.ids.append(other.ids[i])
             sumBasket.sounds.append(other.sounds[i])
-        sumBasket.remove_duplicate()
+        sumBasket._remove_duplicate()
         return sumBasket
 
-    def remove_duplicate(self):
+    def _remove_duplicate(self):
         # TODO : add method to concatenate analysis in Analysis() (won't have to reload json...)
         ids_old = self.ids
         sounds_old = self.sounds
@@ -403,6 +488,8 @@ class Basket(Client):
                 self.sounds.append(sounds_old[i])
         self.update_analysis()
 
+    #________________________________________________________________________#
+    # __________________________ Users functions ____________________________#
     def push(self, sound):
         """
         >>> sound = c.my_get_sound(query='wind')
