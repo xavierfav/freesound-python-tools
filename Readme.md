@@ -21,7 +21,7 @@ sound = c.my_get_sound(23)
 ```
 A Basket is used to store sounds and analysis:
 ```
-b = manager.Basket()
+b = manager.Basket(c)
 b.load_sounds(pager)
 b.add_analysis('lowlevel.mfcc')
 
@@ -30,7 +30,7 @@ b.analysis.lowlevel.mfcc
 ```
 You can store Baskets as Pickle or json file:
 ```
-b.save_pickle_basket('myBasket')
+c.save_pickle_basket(b, 'myBasket')
 b.save('myBasket')
 ```
 The library takes care of downloading datas from Freesound or local. It also saves sounds and analysis in local automatically.

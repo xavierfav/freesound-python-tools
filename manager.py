@@ -56,11 +56,11 @@ class Client(freesound.FreesoundClient):
 
     >>> import manager
     >>> c = manager.Client()
+    Enter your client id: xxx
     Enter your api key: xxx
-    Your api key as been stored in api_key.txt file
+    ...
     """
     def __init__(self):
-        self.oauth = ''
         self._scan_folder()
         self._init_oauth()
 
@@ -168,7 +168,7 @@ class Client(freesound.FreesoundClient):
 
         return analysis
 
-    def save_pickle_basket(self, name):
+    def save_pickle_basket(self, basket, name):
         """
         Use this method to save a basket in a pickle file
         TODO : generalize this method for all cain of object...
@@ -177,13 +177,13 @@ class Client(freesound.FreesoundClient):
         if name and not (name in settings.local_baskets_pickle):
             nameFile = 'baskets_pickle/' + name
             with open(nameFile, 'w') as outfile:
-                cPickle.dump(self, outfile)
+                cPickle.dump(basket, outfile)
             settings.local_baskets_pickle.append(name)
         else:
             overwrite = raw_input(name + ' basket already exists. Do you want to replace it ? (y/n)')
             if overwrite == 'y':
                 settings.local_baskets_pickle.remove(name)
-                self.save_pickle_basket(name)
+                self.save_pickle_basket(basket, name)
             else:
                 print 'Basket was not saved'
 
@@ -382,6 +382,8 @@ class Client(freesound.FreesoundClient):
             self.client_id = client_id
             self.access_oauth = access_oauth
 
+        self._set_oauth()
+
     @staticmethod
     def _write_api_key(client_id, token, access_oauth, refresh_oauth):
         file = open('api_key.py', 'w')
@@ -395,7 +397,7 @@ class Client(freesound.FreesoundClient):
         file.close()
 
     def _set_oauth(self):
-        self.set_token(self.oauth, auth_type='oauth')
+        self.set_token(self.access_oauth, auth_type='oauth')
 
     def _set_token(self):
         self.set_token(self.token)
@@ -450,18 +452,18 @@ class Analysis():
 #_________________________________________________________________#
 #                        Basket class                             #
 #_________________________________________________________________#
-class Basket(Client):
+class Basket:
     """
     A basket where sounds and analysis can be loaded
-    >>> b = manager.Basket()
+    >>> b = manager.Basket(c)
     TODO : add comments attribute, title...
     """
-    def __init__(self):
+    def __init__(self, client):
         self.sounds = []
         self.analysis = Analysis()
         self.ids = []
         self.analysis_names = []
-        Client.__init__(self)
+        self.parent_client = client
 
     def __add__(self, other):
         """
@@ -515,7 +517,7 @@ class Basket(Client):
         Bar = ProgressBar(nbSound, LENGTH_BAR, 'Loading sounds')
         Bar.update(0)
         for i in range(nbSound):
-            self.sounds.append(self.my_get_sound(self.ids[i]))
+            self.sounds.append(self.parent_client.my_get_sound(self.ids[i]))
             Bar.update(i + 1)
 
     def add_analysis(self, descriptor):
@@ -536,7 +538,7 @@ class Basket(Client):
             Bar = ProgressBar(nbSound,LENGTH_BAR, 'Loading ' + descriptor + ' analysis')
             Bar.update(0)
             for i in range(nbSound):
-                allFrames.append(self.my_get_analysis(self.ids[i], descriptor))
+                allFrames.append(self.parent_client.my_get_analysis(self.ids[i], descriptor))
                 Bar.update(i+1)
             self.analysis_names.append(descriptor)
             self.analysis.rsetattr(descriptor, allFrames)
@@ -550,7 +552,7 @@ class Basket(Client):
             Bar.update(0)
             for i in range(nbAnalysisToLoad):
                 Bar.update(i + 1)
-                allFrames.append(self.my_get_analysis(self.ids[i+nbAnalysis], nameAnalysis))
+                allFrames.append(self.parent_client.my_get_analysis(self.ids[i+nbAnalysis], nameAnalysis))
 
     def remove_analysis(self, descriptor):
         if descriptor in self.analysis_names:
@@ -572,7 +574,7 @@ class Basket(Client):
         Bar.update(0)
         # 1st iteration                              # maybe there is a better way to iterate through pages...
         for i in results_pager:
-            self.push(self.my_get_sound(i.id))
+            self.push(self.parent_client.my_get_sound(i.id))
             numSound = numSound+1
             Bar.update(numSound+1)
 
@@ -580,7 +582,7 @@ class Basket(Client):
         while (numSound<nbSound):
             results_pager = results_pager_last.next_page()
             for i in results_pager:
-                self.push(self.my_get_sound(i.id))
+                self.push(self.parent_client.my_get_sound(i.id))
                 numSound = numSound+1
                 Bar.update(numSound+1)
             results_pager_last = results_pager
@@ -618,7 +620,7 @@ class Basket(Client):
 
     def load(self,name):
         """
-        Use thise method to load a basket
+        Use thise method to load a basket from json files
         """
         self.sounds = []
         settings = SettingsSingleton()
