@@ -52,17 +52,20 @@ class SettingsSingleton(object):
 class Client(freesound.FreesoundClient):
     """
     Create FreesoundClient and set authentication
-    The first time you authenticate, it will ask for your Freesound api key
-
+    The first time you create a client, it will ask for your Freesound id, api key and set up authentication
     >>> import manager
     >>> c = manager.Client()
     Enter your client id: xxx
     Enter your api key: xxx
     ...
+
+    If Freesound server is down, you can create a client without authentication:
+    >>> c = manager.Client(authentication = False)
     """
-    def __init__(self):
+    def __init__(self, authentication=True):
         self._scan_folder()
-        self._init_oauth()
+        if authentication:
+            self._init_oauth()
 
     # ________________________________________________________________________#
     #____________________________ local folders ______________________________#
@@ -168,38 +171,42 @@ class Client(freesound.FreesoundClient):
 
         return analysis
 
-    def save_pickle_basket(self, basket, name):
+    def new_basket(self):
         """
-        Use this method to save a basket in a pickle file
-        TODO : generalize this method for all cain of object...
+        Create a new Basket
         """
-        settings = SettingsSingleton()
-        if name and not (name in settings.local_baskets_pickle):
-            nameFile = 'baskets_pickle/' + name
-            with open(nameFile, 'w') as outfile:
-                cPickle.dump(basket, outfile)
-            settings.local_baskets_pickle.append(name)
-        else:
-            overwrite = raw_input(name + ' basket already exists. Do you want to replace it ? (y/n)')
-            if overwrite == 'y':
-                settings.local_baskets_pickle.remove(name)
-                self.save_pickle_basket(basket, name)
-            else:
-                print 'Basket was not saved'
+        basket = Basket(self)
+        return basket
 
-    def load_pickle_basket(self, name):
+    def load_basket_pickle(self, name):
         """
-        Use thise method to load a basket from a pickle (faster than recreating from json)
-        TODO : generalize this method for all cain of object...
+        Load a basket from pickle
         """
         settings = SettingsSingleton()
         if name and name in settings.local_baskets_pickle:
             nameFile = 'baskets_pickle/' + name
             with open(nameFile) as infile:
                 obj = cPickle.load(infile)
+            obj.parent_client = self
             return obj
         else:
             print '%s basket does not exist' % name
+
+    def save_pickle(self, obj, name, path):
+        """
+        Use this method to save an object with pickle
+        """
+        nameFile = path + name
+        with open(nameFile, 'w') as outfile:
+            cPickle.dump(obj, outfile)
+
+    def load_pickle(self, nameFile):
+        """
+        Use thise method to load an object from pickle
+        """
+        with open(nameFile) as infile:
+            obj = cPickle.load(infile)
+        return obj
 
     # ________________________________________________________________________#
     # _______________________ Private functions ______________________________#
@@ -344,9 +351,12 @@ class Client(freesound.FreesoundClient):
     def _init_oauth(self):
         try:
             import api_key
+            reload(api_key)
             client_id = api_key.client_id
             token = api_key.token
             refresh_oauth = api_key.refresh_oauth
+
+            print ' Authenticating:\n'
 
             req = 'curl -X POST -d "client_id=' + client_id + '&client_secret=' + token + \
                   '&grant_type=refresh_token&refresh_token=' + refresh_oauth + '" ' + \
@@ -362,11 +372,13 @@ class Client(freesound.FreesoundClient):
             self.client_id = client_id
             self.access_oauth = access_oauth
 
-        except:
+        except ImportError:
             client_id = raw_input('Enter your client id: ')
             token = raw_input('Enter your api key: ')
             code = raw_input('Please go to: https://www.freesound.org/apiv2/oauth2/authorize/?client_id=' + client_id + \
                   '&response_type=code&state=xyz and enter the ginve code: ')
+
+            print '\n Authenticating:\n'
 
             req = 'curl -X POST -d "client_id=' + client_id + '&client_secret=' + token + \
                   '&grant_type=authorization_code&code=' + code + '" ' + \
@@ -382,7 +394,13 @@ class Client(freesound.FreesoundClient):
             self.client_id = client_id
             self.access_oauth = access_oauth
 
+        except:
+            print 'Could not authenticate'
+            return
+
         self._set_oauth()
+        print '\n Congrats ! Your are now authenticated \n'
+        print freesound_rocks_ascii_art
 
     @staticmethod
     def _write_api_key(client_id, token, access_oauth, refresh_oauth):
@@ -455,7 +473,8 @@ class Analysis():
 class Basket:
     """
     A basket where sounds and analysis can be loaded
-    >>> b = manager.Basket(c)
+    >>> c = manager.Client()
+    >>> b = c.new_basket()
     TODO : add comments attribute, title...
     """
     def __init__(self, client):
@@ -638,6 +657,18 @@ class Basket:
         else:
             print '%s basket does not exist' % name
 
+    def save_pickle(self, name):
+        settings = SettingsSingleton()
+        if name and not (name in settings.local_baskets_pickle):
+            self.parent_client.save_pickle(self, name, 'baskets_pickle/')
+            settings.local_baskets_pickle.append(name)
+        else:
+            overwrite = raw_input(name + ' basket already exists. Do you want to replace it ? (y/n)')
+            if overwrite == 'y':
+                self.parent_client.save_pickle(self, name, 'baskets_pickle/')
+            else:
+                print 'Basket was not saved'
+
 
 # TODO :    create a class for utilities
 #
@@ -677,3 +708,11 @@ def strip_non_ascii(string):
     ''' Returns the string without non ASCII characters'''
     stripped = (c for c in string if 0 < ord(c) < 127)
     return ''.join(stripped)
+
+freesound_rocks_ascii_art = \
+"   ______                                       _     _____            _		\n \
+ |  ____|                                     | |   |  __ \          | |  	    \n \
+ | |__ _ __ ___  ___ ___  ___  _   _ _ __   __| |   | |__) |___   ___| | _____	\n \
+ |  __| '__/ _ \/ __/ __|/ _ \| | | | '_ \ / _` |   |  _  // _ \ / __| |/ / __|	\n \
+ | |  | | |  __/\__ \__ \ (_) | |_| | | | | (_| |   | | \ \ (_) | (__|   <\__ \	\n \
+ |_|  |_|  \___||___/___/\___/ \__,_|_| |_|\__,_|   |_|  \_\___/ \___|_|\_\___/	\n "
