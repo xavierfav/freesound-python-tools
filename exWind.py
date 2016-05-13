@@ -1,3 +1,62 @@
+# HMM with mfcc
+# hmmlearn from scikit learn
+from hmmlearn.hmm import GaussianHMM
+from sklearn.preprocessing import scale
+
+
+means = []
+vars = []
+hiddens = []
+count = 0
+nbAnalysis = len(b.ids)
+
+for analysis in b.analysis.lowlevel.mfcc:
+    if analysis is not None:
+        try:
+            obs = np.array(analysis)
+            obs = obs.T
+            obs = obs[1:]
+            obs = obs.T
+            obs = scale(obs)
+
+            model = GaussianHMM(algorithm='map', covariance_type='diag', covars_prior=0.01,
+                  covars_weight=1, init_params='mc', means_prior=0, means_weight=0,
+                  min_covar=0.001, n_components=3, n_iter=1000, params='mc',
+                  random_state=None, startprob_prior=1.0, tol=0.01, transmat_prior=1.0,
+                  verbose=False)
+
+            model.startprob_ = np.array([1., 0, 0])
+            model.startprob_prior = model.startprob_
+            model.transmat_ = np.array([[0.9, 0.1, 0], [0, 0.9, 0.1], [0, 0, 1]])
+            model.transmat_prior = model.transmat_
+
+            model.fit(obs)
+            hidden_state = model.predict(obs)
+
+            mean_sequence = obs
+            var_sequence = obs
+            for i in range(len(obs)):
+                mean_sequence[i] = model.means_[hidden_state[i]]
+                var_sequence[i] = np.diag(model.covars_[hidden_state[i]])
+
+            means.append(mean_sequence)
+            vars.append(var_sequence)
+            hiddens.append(hidden_state)
+        except:
+            means.append(None)
+            vars.append(None)
+            hiddens.append(None)
+    else:
+        means.append(None)
+        vars.append(None)
+        hiddens.append(None)
+    count += 1
+    print str(count) + '/' + str(nbAnalysis)
+
+
+
+
+################################################################################################
 import copy
 import essentia
 import freesound
