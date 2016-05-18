@@ -2,7 +2,9 @@
 # hmmlearn from scikit learn
 from hmmlearn.hmm import GaussianHMM
 from sklearn.preprocessing import scale
-
+from hmm.continuous.GMHMM import GMHMM
+from hmm.discrete.DiscreteHMM import DiscreteHMM
+import numpy
 
 means = []
 vars = []
@@ -10,34 +12,55 @@ hiddens = []
 count = 0
 nbAnalysis = len(b.ids)
 
+n = 3
+m = 1
+d = 12
+
+
+
 for analysis in b.analysis.lowlevel.mfcc:
     if analysis is not None:
         try:
-            obs = np.array(analysis)
+            obs = numpy.array(analysis)
             obs = obs.T
             obs = obs[1:]
             obs = obs.T
             obs = scale(obs)
 
-            model = GaussianHMM(algorithm='map', covariance_type='diag', covars_prior=0.01,
+            model = GaussianHMM(algorithm='viterbi', covariance_type='diag', covars_prior=0.01,
                   covars_weight=1, init_params='mc', means_prior=0, means_weight=0,
                   min_covar=0.001, n_components=3, n_iter=1000, params='mc',
                   random_state=None, startprob_prior=1.0, tol=0.01, transmat_prior=1.0,
                   verbose=False)
 
-            model.startprob_ = np.array([1., 0, 0])
+            model.startprob_ = numpy.array([1., 0, 0])
             model.startprob_prior = model.startprob_
-            model.transmat_ = np.array([[0.9, 0.1, 0], [0, 0.9, 0.1], [0, 0, 1]])
+            model.transmat_ = numpy.array([[0.9, 0.1, 0], [0, 0.9, 0.1], [0, 0, 1]])
             model.transmat_prior = model.transmat_
 
             model.fit(obs)
-            hidden_state = model.predict(obs)
 
-            mean_sequence = obs
-            var_sequence = obs
+            pi = model.startprob_
+            A = model.transmat_
+            w = numpy.ones((n, m), dtype=numpy.double)
+            hmm_means = numpy.ones((n, m, d), dtype=numpy.double)
+            hmm_means[0][0] = model.means_[0]
+            hmm_means[1][0] = model.means_[1]
+            hmm_means[2][0] = model.means_[2]
+            hmm_covars = numpy.array([[ numpy.matrix(numpy.eye(d,d)) for j in xrange(m)] for i in xrange(n)])
+            hmm_covars[0][0] = model.covars_[0]
+            hmm_covars[1][0] = model.covars_[1]
+            hmm_covars[2][0] = model.covars_[2]
+            gmmhmm = GMHMM(n,m,d,A,hmm_means,hmm_covars,w,pi,init_type='user',verbose=False)
+
+            # hidden_state = model.predict(obs)
+            hidden_state = gmmhmm.decode(obs)
+
+            mean_sequence = [None] * len(obs)
+            var_sequence = [None] * len(obs)
             for i in range(len(obs)):
                 mean_sequence[i] = model.means_[hidden_state[i]]
-                var_sequence[i] = np.diag(model.covars_[hidden_state[i]])
+                var_sequence[i] = numpy.diag(model.covars_[hidden_state[i]])
 
             means.append(mean_sequence)
             vars.append(var_sequence)

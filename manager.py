@@ -669,6 +669,24 @@ class Basket:
             else:
                 print 'Basket was not saved'
 
+    #________________________________________________________________________#
+    # __________________________ Language tools _____________________________#
+
+    def tags_number_occurrences(self, str):
+        counter = 0
+        for sound in self.sounds:
+            if str in sound.tags:
+                counter += 1
+        return counter
+
+    def description_number_occurrences(self, str):
+        counter = 0
+        for sound in self.sounds:
+            if str in sound.description:
+                counter += 1
+        return counter
+
+
 
 # TODO :    create a class for utilities
 #
