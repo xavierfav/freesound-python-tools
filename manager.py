@@ -20,6 +20,7 @@ reload(sys)
 sys.setdefaultencoding("utf-8")
 import subprocess
 import ast
+from time import sleep
 
 LENGTH_BAR = 30 # length of the progress bar
 
@@ -239,11 +240,24 @@ class Client(freesound.FreesoundClient):
             return None
 
     def _load_sound_freesound(self, idToLoad):
-        try:
-            sound = self.get_sound(idToLoad)
-            return sound
-        except ValueError:
-            return None
+        count = 0
+        while 1: # maybe use decorator to add this to all function that can fail sometimes...
+            count += 1
+            if count > 10:
+                print 'sound ' + str(idToLoad) + ' not found (tried 10 times)'
+                return None
+            try:
+                sound = self.get_sound(idToLoad)
+                return sound
+            except ValueError:
+                return None
+            except URLError as e:
+                sleep(1)
+                print e, 'id ' + str(idToLoad)
+            except freesound.FreesoundException as e:
+                sleep(1)
+                print e, 'id ' + str(idToLoad)
+
 
     def _save_analysis_json(self, analysis, idSound):
         """
@@ -482,6 +496,7 @@ class Basket:
         self.analysis = Analysis()
         self.ids = []
         self.analysis_names = []
+
         self.parent_client = client
 
     def __add__(self, other):
@@ -519,7 +534,10 @@ class Basket:
         """
         #sound.name = strip_non_ascii(sound.name)
         self.sounds.append(sound)
-        self.ids.append(sound.id)
+        if sound is not None:
+            self.ids.append(sound.id)
+        else:
+            self.ids.append(None)
 
     def remove(self, index_list):
         for i in index_list:
@@ -578,7 +596,7 @@ class Basket:
             self.analysis.remove('all', descriptor)
             self.analysis_names.remove(descriptor)
 
-    def load_sounds(self, results_pager):
+    def load_sounds(self, results_pager, begin_idx=0, debugger=None):
         """
         Use this method to load all the sounds from a result pager int the basket
         this method does not take the objects from the pager but usgin my_get_sound() which return a sound with all the fields
@@ -587,7 +605,7 @@ class Basket:
         >>> b.load_sounds(results_pager)
         """
         nbSound = results_pager.count
-        numSound = 0 # for iteration
+        numSound = begin_idx # for iteration
         results_pager_last = results_pager
         Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading sounds')
         Bar.update(0)
@@ -599,7 +617,16 @@ class Basket:
 
         # next iteration
         while (numSound<nbSound):
-            results_pager = results_pager_last.next_page()
+            while 1: # care with this infinite loop...
+                try:
+                    results_pager = results_pager_last.next_page()
+                    if debugger:
+                        debugger.append(results_pager)
+                    break
+                except:
+                    exc_info = sys.exc_info()
+                    sleep(1)
+                    print exc_info
             for i in results_pager:
                 self.push(self.parent_client.my_get_sound(i.id))
                 numSound = numSound+1
