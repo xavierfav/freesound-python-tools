@@ -10,4 +10,4 @@ build
 /pickles
 .idea/
 api_key.py
-graylog_auth
+graylog_auth.py
