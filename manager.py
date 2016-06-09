@@ -20,7 +20,10 @@ reload(sys)
 sys.setdefaultencoding("utf-8")
 import subprocess
 import ast
-from time import sleep
+from time import sleep, gmtime, strftime
+import psycopg2
+import requests
+from math import ceil
 
 LENGTH_BAR = 30 # length of the progress bar
 
@@ -699,27 +702,231 @@ class Basket:
     #________________________________________________________________________#
     # __________________________ Language tools _____________________________#
 
-    def tags_number_occurrences(self, str):
-        counter = 0
+    def tags_occurrences(self, tag):
+        ids = []
+        for i in range(len(self.sounds)):
+            if tag in self.sounds[i].tags:
+                ids.append(i)
+        number = len(ids)
+        return number, ids
+
+    def description_occurrences(self, str):
+        ids = []
+        for i in range(len(self.sounds)):
+            if str in self.sounds[i].description:
+                ids.append(i)
+        number = len(ids)
+        return number, ids
+
+    def tags_extract_all(self):
+        tags = []
         for sound in self.sounds:
-            if str in sound.tags:
-                counter += 1
-        return counter
+            for tag in sound.tags:
+                if tag not in tags:
+                    tags.append(tag)
+        return tags
 
-    def description_number_occurrences(self, str):
+
+# _________________________________________________________________#
+#                           SQL class                              #
+# _________________________________________________________________#
+class SQLManager:
+    """
+    This class uses psycopg2 to access psql database
+    """
+    def __init__(self, db_name ='freesound'):
+        self.db_name = db_name          # the db had been previously imported with psql
+        self.conn_text = 'dbname=' + self.db_name + ' user=xavier' # the user has been created and has access to the db
+        self.connect()
+
+    def connect(self):
+        self.conn = psycopg2.connect(self.conn_text)
+        self.cur = self.conn.cursor()
+
+    def disconnect(self):
+        self.cur.close()
+        self.conn.close()
+
+    def command(self, command, option = None):
+        self.cur.execute(command,option)
+        return self.cur.fetchall()
+
+
+# _________________________________________________________________#
+#                        Graylog API class                         #
+# _________________________________________________________________#
+class GraylogManager:
+
+    def __init__(self):
+        self.limit_item = 1000
+        self.auth = self._get_auth()
+        self.url = 'http://logserver.mtg.upf.edu/graylog-api/'
+        self.url_search_query = '/search/universal/absolute?query=query&' \
+                                            '&limit=' + str(int(self.limit_item))
+        self.sql = SQLManager('freesound_queries')
+        self.date_last_query_in_db = self._get_date_last_query_in_db()
+
+    def _get_auth(self):
+        import graylog_auth # create a py file with variable auth = (user,password)
+        return graylog_auth.auth
+
+    def _get_date_last_query_in_db(self):
+        last_date = self.sql.command('select timestamp from queries order by timestamp desc limit 1')
+        last_date = last_date[0][0].isoformat()
+        last_date = last_date[:-3]
+        last_date = last_date[:-1] + str(int(last_date[-1])+1) + 'Z' # one milisec is added in order to not get the last query
+        return last_date
+
+    def _get_last_index(self):
+        last_idx = last_date = self.sql.command('select id from queries order by id desc limit 1')
+        return last_idx
+
+    def _get_time(self):
+        timetup = gmtime()
+        return strftime('%Y-%m-%dT%H:%M:%S.000Z', timetup)
+
+    def get_users_search_queries(self, offset=0):
+        u = self.url + self.url_search_query + '&offset=' + str(offset) \
+                                + '&from=2014-04-24T15:34:49.000Z&to=' \
+                                + self._get_time()
+
         counter = 0
-        for sound in self.sounds:
-            if str in sound.description:
-                counter += 1
-        return counter
+        while 1:
+            counter = counter + 1
+            if counter > 10 :
+                r = None
+                break
+            try:
+                r = requests.get(u, auth=self.auth)
+                break
+            except Exception as e:
+                print e
+                sleep(1)
+
+        if r is not None:
+            r = r.json()
+            total_results = r['total_results']
+            r = r['messages']
+            list_queries = [(r[i]['message']['timestamp'],
+                             r[i]['message']['message']) for i in range(self.limit_item)]
+        else:
+            list_queries = []
+            total_results = 0
+        return list_queries, total_results
+
+    def get_all_search_queries(self):
+        list_queries, total_results = self.get_users_search_queries()
+        all_queries = list_queries
+        nb_pages = int(ceil(total_results / float(self.limit_item)))
+        Bar = ProgressBar(nb_pages, LENGTH_BAR, 'Requests on Graylog')
+        Bar.update(0)
+        for i in range(nb_pages-1):
+            Bar.update(i+1)
+            list_queries, total_results = self.get_users_search_queries((i+1)*self.limit_item)
+            all_queries = all_queries + list_queries
+        return all_queries
+
+    def get_new_users_search_queries(self, offset=0):
+        u = self.url + self.url_search_query + '&offset=' + str(offset) \
+            + '&from=' + self.date_last_query_in_db + '&to=' \
+            + self._get_time()
+        #print u
+        counter = 0
+        while 1:
+            counter = counter + 1
+            if counter > 10:
+                r = None
+                break
+            try:
+                r = requests.get(u, auth=self.auth)
+                break
+            except Exception as e:
+                print e
+                sleep(1)
+
+        if r is not None:
+            r = r.json()
+            total_results = r['total_results']
+            r = r['messages']
+            list_queries = [(r[i]['message']['timestamp'],
+                             r[i]['message']['message']) for i in range(self.limit_item)]
+        else:
+            list_queries = []
+            total_results = 0
+        return list_queries, total_results
+
+    def get_all_new_search_queries(self):
+        list_queries, total_results = self.get_new_users_search_queries()
+        all_queries = list_queries
+        nb_pages = int(ceil(total_results / float(self.limit_item)))
+        Bar = ProgressBar(nb_pages, LENGTH_BAR, 'Requests on Graylog')
+        Bar.update(0)
+        for i in range(nb_pages-1):
+            Bar.update(i+1)
+            list_queries, total_results = self.get_users_search_queries((i+1)*self.limit_item)
+            all_queries = all_queries + list_queries
+        return all_queries
+
+    def organize_all_queries(self, all_queries):
+        all_queries_organized = []
+        for i, item in enumerate(all_queries):
+            search = item[1]
+            if len(search) > 7:
+                if search[8] == '!':
+                    search_split = search.split(' #!# ')
+                    if search_split[2] == '':
+                        search = json.loads(search_split[1])
+                    else:
+                        search = json.loads(search_split[1]).update(json.loads(search_split[2]))
+                        all_queries_organized.append((item[0], search, 'api'))
+                elif search[:6] == 'Search':
+                    search_split = json.loads(search.split('Search (')[1][:-1])
+                    all_queries_organized.append((item[0], search_split, 'web'))
+        return all_queries
+
+    def update_freesound_queries_db(self):
+        all_queries = self.get_all_new_search_queries()
+        all_queries = self.organize_all_queries(all_queries)
+        last_idx = self._get_last_index()
+        cur = self.sql.cur
+        for i, item in enumerate(all_queries):
+            if item[1] is not None:
+                t = item[0].replace('T', ' ')
+                t = t.replace('Z', '')
+                cur.execute('insert into queries values(%s, %s, %s, %s)', (i + last_idx+1, json.dumps(item[1]), item[2]))
+        self.sql.conn.commit()
 
 
 
-# TODO :    create a class for utilities
+
+
+        # TODO :    create a class for utilities
 #
 #_________________________________________________________________#
 #                             UTILS                               #
 #_________________________________________________________________#
+class DictObject:
+    def __init__(self, json_dict=None):
+        if not json_dict:
+            with open('analysis_template.json') as infile:
+                json_dict = json.load(infile)
+
+        self.json_dict = json_dict
+
+        def replace_dashes(d):
+            for k, v in d.items():
+                if "-" in k:
+                    d[k.replace("-", "_")] = d[k]
+                    del d[k]
+                if isinstance(v, dict): replace_dashes(v)
+
+        replace_dashes(json_dict)
+        self.__dict__.update(json_dict)
+        for k, v in json_dict.items():
+            if isinstance(v, dict):
+                self.__dict__[k] = DictObject(v)
+
+
 class ProgressBar:
     """
     Progress bar

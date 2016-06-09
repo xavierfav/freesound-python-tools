@@ -7,5 +7,7 @@ build
 /baskets
 /baskets_pickle
 /previews
+/pickles
 .idea/
 api_key.py
+graylog_auth
