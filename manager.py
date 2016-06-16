@@ -542,6 +542,14 @@ class Basket:
         else:
             self.ids.append(None)
 
+    def push_list_id(self, sounds_id):
+        Bar = ProgressBar(len(sounds_id), LENGTH_BAR, 'Loading sounds')
+        Bar.update(0)
+        for idx, id in enumerate(sounds_id):
+            sound = self.parent_client.my_get_sound(id)
+            self.push(sound)
+            Bar.update(idx+1)
+
     def remove(self, index_list):
         for i in index_list:
             del self.ids[i]
@@ -558,7 +566,7 @@ class Basket:
         Bar.update(0)
         for i in range(nbSound):
             self.sounds.append(self.parent_client.my_get_sound(self.ids[i]))
-            Bar.update(i + 1)
+            Bar.update(i+1)
 
     def add_analysis(self, descriptor):
         """
@@ -702,12 +710,27 @@ class Basket:
     #________________________________________________________________________#
     # __________________________ Language tools _____________________________#
 
-    def tags_occurrences(self, tag):
+    def tags_occurrences(self):
+        """
+        Returns a list of tuples (tag, nb_occurrences, [sound ids])
+        The list is sorted by number of occurrences of tags
+        """
+        all_tags_occurrences = []
+        tags = self.tags_extract_all()
+        for idx, tag in enumerate(tags):
+            tag_occurrences = self.tag_occurrences(tag)
+            all_tags_occurrences.append((tag, tag_occurrences[0], tag_occurrences[1]))
+            all_tags_occurrences = sorted(all_tags_occurrences, key=lambda oc: oc[1])
+            all_tags_occurrences.reverse()
+        return all_tags_occurrences
+
+    def tag_occurrences(self, tag):
         ids = []
-        for i in range(len(self.sounds)):
-            if tag in self.sounds[i].tags:
-                ids.append(i)
-        number = len(ids)
+        for i, sound in enumerate(self.sounds):
+            if sound is not None:
+                if tag in sound.tags:
+                    ids.append(i)
+            number = len(ids)
         return number, ids
 
     def description_occurrences(self, str):
@@ -721,11 +744,11 @@ class Basket:
     def tags_extract_all(self):
         tags = []
         for sound in self.sounds:
-            for tag in sound.tags:
-                if tag not in tags:
-                    tags.append(tag)
+            if sound is not None:
+                for tag in sound.tags:
+                    if tag not in tags:
+                        tags.append(tag)
         return tags
-
 
 # _________________________________________________________________#
 #                           SQL class                              #
@@ -758,101 +781,104 @@ class SQLManager:
 class GraylogManager:
 
     def __init__(self):
-        self.limit_item = 1000
+        self.limit_item = 5000
         self.auth = self._get_auth()
         self.url = 'http://logserver.mtg.upf.edu/graylog-api/'
         self.url_search_query = '/search/universal/absolute?query=query&' \
-                                            '&limit=' + str(int(self.limit_item))
+                                            '&limit=' + str(int(self.limit_item)) + '&sort=timestamp%3Aasc'
         self.sql = SQLManager('freesound_queries')
         self.date_last_query_in_db = self._get_date_last_query_in_db()
 
+    def restart(self):
+        self.sql.disconnect()
+        self.sql = SQLManager('freesound_queries')
+
     def _get_auth(self):
-        import graylog_auth # create a py file with variable auth = (user,password)
+        import graylog_auth # you need to create a py file with variable auth = (user,password)
         return graylog_auth.auth
 
     def _get_date_last_query_in_db(self):
-        last_date = self.sql.command('select timestamp from queries order by timestamp desc limit 1')
-        last_date = last_date[0][0].isoformat()
-        last_date = last_date[:-3]
-        last_date = last_date[:-1] + str(int(last_date[-1])+1) + 'Z' # one milisec is added in order to not get the last query
+        last_date = self.sql.command('select timestamp from queries1 order by timestamp desc limit 1')
+        try:
+            last_date = last_date[0][0].isoformat()
+            last_date = last_date[:-3]
+            last_date = last_date[:-1] + str(int(last_date[-1])+1) + 'Z' # one milisec is added in order to not get the last query
+        except IndexError:
+            last_date = '2016-05-11T11:20:24.000Z'
         return last_date
 
     def _get_last_index(self):
-        last_idx = last_date = self.sql.command('select id from queries order by id desc limit 1')
+        try:
+            last_idx = last_date = self.sql.command('select id from queries1 order by id desc limit 1')
+            last_idx = last_idx[0][0]
+        except IndexError:
+            last_idx = -1
         return last_idx
 
     def _get_time(self):
         timetup = gmtime()
         return strftime('%Y-%m-%dT%H:%M:%S.000Z', timetup)
 
-    def get_users_search_queries(self, offset=0):
-        u = self.url + self.url_search_query + '&offset=' + str(offset) \
-                                + '&from=2014-04-24T15:34:49.000Z&to=' \
-                                + self._get_time()
-
+    @staticmethod
+    def _request(u, auth):
         counter = 0
-        while 1:
-            counter = counter + 1
-            if counter > 10 :
+        while 1:  # Loop for trying 10 times the request with 1 sec delay
+            counter += 1
+            if counter > 10:
                 r = None
                 break
             try:
-                r = requests.get(u, auth=self.auth)
+                r = requests.get(u, auth=auth)
                 break
             except Exception as e:
                 print e
                 sleep(1)
+        return r
 
+    def get_users_search_queries(self, from_date, to_date, offset=0):
+        u = self.url + self.url_search_query + '&offset=' + str(offset) + '&'\
+                                + 'from=' + str(from_date) + '&to=' \
+                                + str(to_date)
+
+        r = self._request(u, self.auth)
+
+        # some manipulation of the data (the dict given with the graylog api request
+        #                                   is really nested, it makes it a bit dirty)
         if r is not None:
-            r = r.json()
+            try:
+                r = r.json()
+            except ValueError as e:
+                print 'No JSON object could be decoded'
+                return [], 0
             total_results = r['total_results']
             r = r['messages']
+            nb = len(r)
             list_queries = [(r[i]['message']['timestamp'],
-                             r[i]['message']['message']) for i in range(self.limit_item)]
+                             r[i]['message']['message']) for i in range(nb)]
         else:
             list_queries = []
             total_results = 0
         return list_queries, total_results
 
     def get_all_search_queries(self):
-        list_queries, total_results = self.get_users_search_queries()
+        from_date = '2014-01-23T15:34:49.000Z'
+        to_date = self._get_time()
+        list_queries, total_results = self.get_users_search_queries(from_date, to_date)
         all_queries = list_queries
         nb_pages = int(ceil(total_results / float(self.limit_item)))
         Bar = ProgressBar(nb_pages, LENGTH_BAR, 'Requests on Graylog')
         Bar.update(0)
         for i in range(nb_pages-1):
             Bar.update(i+1)
-            list_queries, total_results = self.get_users_search_queries((i+1)*self.limit_item)
+            list_queries, total_results = self.get_users_search_queries(from_date, to_date, (i+1)*self.limit_item)
             all_queries = all_queries + list_queries
         return all_queries
 
     def get_new_users_search_queries(self, offset=0):
-        u = self.url + self.url_search_query + '&offset=' + str(offset) \
-            + '&from=' + self.date_last_query_in_db + '&to=' \
-            + self._get_time()
-        #print u
-        counter = 0
-        while 1:
-            counter = counter + 1
-            if counter > 10:
-                r = None
-                break
-            try:
-                r = requests.get(u, auth=self.auth)
-                break
-            except Exception as e:
-                print e
-                sleep(1)
-
-        if r is not None:
-            r = r.json()
-            total_results = r['total_results']
-            r = r['messages']
-            list_queries = [(r[i]['message']['timestamp'],
-                             r[i]['message']['message']) for i in range(self.limit_item)]
-        else:
-            list_queries = []
-            total_results = 0
+        from_date = self._get_date_last_query_in_db()
+        to_date = self._get_time()
+        print from_date, to_date
+        list_queries, total_results = self.get_users_search_queries(from_date, to_date, offset)
         return list_queries, total_results
 
     def get_all_new_search_queries(self):
@@ -860,42 +886,86 @@ class GraylogManager:
         all_queries = list_queries
         nb_pages = int(ceil(total_results / float(self.limit_item)))
         Bar = ProgressBar(nb_pages, LENGTH_BAR, 'Requests on Graylog')
-        Bar.update(0)
+        Bar.update(1)
         for i in range(nb_pages-1):
-            Bar.update(i+1)
-            list_queries, total_results = self.get_users_search_queries((i+1)*self.limit_item)
+            list_queries, total_results = self.get_new_users_search_queries((i+1)*self.limit_item)
             all_queries = all_queries + list_queries
+            Bar.update(i + 2)
         return all_queries
 
-    def organize_all_queries(self, all_queries):
+    @staticmethod
+    def organize_all_queries(all_queries, progressbar=None):
+        # there is a bug for the api queries in this fuction, return None in this case...
+        if progressbar:
+            Bar = ProgressBar(len(all_queries), LENGTH_BAR, 'Organizing queries')
+            Bar.update(0)
         all_queries_organized = []
         for i, item in enumerate(all_queries):
             search = item[1]
-            if len(search) > 7:
-                if search[8] == '!':
+            if len(search) > 7:         # str too short means that the log is not from a search query
+                if search[8] == '!':    # when it is a query from the API, there is a '!' in position 8
                     search_split = search.split(' #!# ')
-                    if search_split[2] == '':
+                    if search_split[2] == '':   # there are two cases : One with options and one without
                         search = json.loads(search_split[1])
                     else:
                         search = json.loads(search_split[1]).update(json.loads(search_split[2]))
-                        all_queries_organized.append((item[0], search, 'api'))
-                elif search[:6] == 'Search':
+                    all_queries_organized.append((item[0], search, 'api'))
+                elif search[:6] == 'Search':    # a query from web send a log with 'Search' (upper S)
                     search_split = json.loads(search.split('Search (')[1][:-1])
                     all_queries_organized.append((item[0], search_split, 'web'))
-        return all_queries
+            if progressbar:
+                Bar.update(i+1)
+        return all_queries_organized
 
-    def update_freesound_queries_db(self):
-        all_queries = self.get_all_new_search_queries()
-        all_queries = self.organize_all_queries(all_queries)
+    def fill_freesound_queries_db(self, all_queries, progressbar=None):
+        # db has been previously build with a 'queries' table : (id int, timestamp timestamp, data jsonb, api char(50))
+        if progressbar:
+            Bar = ProgressBar(len(all_queries), LENGTH_BAR, 'Filling psql db')
+            Bar.update(0)
         last_idx = self._get_last_index()
         cur = self.sql.cur
         for i, item in enumerate(all_queries):
             if item[1] is not None:
                 t = item[0].replace('T', ' ')
                 t = t.replace('Z', '')
-                cur.execute('insert into queries values(%s, %s, %s, %s)', (i + last_idx+1, json.dumps(item[1]), item[2]))
-        self.sql.conn.commit()
+                idx = i + last_idx + 1
+                try:
+                    cur.execute('insert into queries1 values(%s, %s, %s, %s)',
+                            (idx, t, json.dumps(item[1]), item[2]))
+                except Exception as e:
+                    print e
+                    self.restart()
+                    cur = self.sql.cur
+                    print ' One query is dropped %s' % item[1]
+                    idx = idx - 1
+            if progressbar:
+                Bar.update(i+1)
+        #self.sql.conn.commit()
 
+    def update_freesound_queries_db(self):
+        self.date_last_query_in_db = self._get_date_last_query_in_db()
+        all_queries = self.get_all_new_search_queries()
+        all_queries = self.organize_all_queries(all_queries)
+        self.fill_freesound_queries_db(all_queries, True)
+
+    def update_freesound_queries_db_page_by_page(self): # for big amount of data
+        from_date = self._get_date_last_query_in_db()
+        to_date = self._get_time()
+
+        list_queries, total_results = self.get_users_search_queries(from_date, to_date)
+        nb_pages = int(ceil(total_results / float(self.limit_item)))
+        Bar = ProgressBar(nb_pages, LENGTH_BAR, 'Updating the DB')
+
+        all_queries = self.organize_all_queries(list_queries)
+        self.fill_freesound_queries_db(all_queries)
+
+        Bar.update(1)
+        for i in range(nb_pages - 1):
+            list_queries, total_results = self.get_users_search_queries(from_date, to_date, (i + 1) * self.limit_item)
+            all_queries = self.organize_all_queries(list_queries)
+            self.fill_freesound_queries_db(all_queries)
+            self.sql.conn.commit()
+            Bar.update(i + 2)
 
 
 
