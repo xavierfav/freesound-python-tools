@@ -24,6 +24,7 @@ from time import sleep, gmtime, strftime
 import psycopg2
 import requests
 from math import ceil
+import datetime
 
 LENGTH_BAR = 30 # length of the progress bar
 
@@ -807,6 +808,16 @@ class GraylogManager:
             last_date = '2016-05-11T11:20:24.000Z'
         return last_date
 
+    def _get_date_first_query_in_db(self):
+        last_date = self.sql.command('select timestamp from queries1 order by timestamp asc limit 1')
+        try:
+            last_date = last_date[0][0].isoformat()
+            last_date = last_date[:-3]
+            last_date = last_date[:-1] + str(int(last_date[-1])) + 'Z'
+        except IndexError:
+            last_date = None
+        return last_date
+
     def _get_last_index(self):
         try:
             last_idx = last_date = self.sql.command('select id from queries1 order by id desc limit 1')
@@ -967,6 +978,35 @@ class GraylogManager:
             self.sql.conn.commit()
             Bar.update(i + 2)
 
+    def _grayDate_to_psqlDate(self, date):
+        new_date = date.replace('T', ' ').replace('Z', '')
+        return new_date
+
+    def _psqlDate_to_grayDate(self, date):
+        new_date = date
+        new_date = new_date[:-3]
+        new_date = new_date[:-1] + new_date[-1] + 'Z'
+        return new_date
+
+    def query_profile_per_week(self):
+        first_date = self._grayDate_to_psqlDate(self._get_date_first_query_in_db())
+        last_date = self._grayDate_to_psqlDate(self._get_date_last_query_in_db())
+        first_year = first_date[:4] + '-W' + '1'
+        last_year = last_date[:4] + '-W' + '52'
+        diff_years = int(last_year[:4]) - int(first_year[:4])
+        list_weeks = []
+        for i in range(diff_years+1):
+            for j in range(52):
+                if i == diff_years and j > int(last_year[6:]):
+                    break
+                list_weeks.append(str(int(first_year[:4]) + i) + '-W' + str(j+1))
+        nb_query_per_week = []
+        for i in range(len(list_weeks)-1):
+            count = self.sql.command('select count(*) from queries1 where timestamp > %s and timestamp < %s',
+                        (datetime.datetime.strptime(list_weeks[i] + '-0', "%Y-W%W-%w"),
+                         datetime.datetime.strptime(list_weeks[i+1] + '-0', "%Y-W%W-%w")))
+            nb_query_per_week.append(int(count[0][0]))
+        return nb_query_per_week
 
 
 
