@@ -351,9 +351,9 @@ class Client(freesound.FreesoundClient):
         if not os.path.exists('baskets'):
             os.makedirs('baskets')
         if not os.path.exists('baskets_pickle'):
-            os.mkdir('baskets_pickle')
+            os.makedirs('baskets_pickle')
         if not os.path.exists('previews'):
-            os.mkdir('previews')
+            os.makedirs('previews')
 
         # create variable with present local sounds & analysis
         # (reduce time consumption for function loading json files)
