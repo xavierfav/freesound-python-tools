@@ -25,6 +25,8 @@ import psycopg2
 import requests
 from math import ceil
 import datetime
+import csv
+
 
 LENGTH_BAR = 30 # length of the progress bar
 
@@ -197,7 +199,8 @@ class Client(freesound.FreesoundClient):
         else:
             print '%s basket does not exist' % name
 
-    def save_pickle(self, obj, name, path):
+    @staticmethod
+    def save_pickle(obj, name, path=''):
         """
         Use this method to save an object with pickle
         """
@@ -205,13 +208,23 @@ class Client(freesound.FreesoundClient):
         with open(nameFile, 'w') as outfile:
             cPickle.dump(obj, outfile)
 
-    def load_pickle(self, nameFile):
+    @staticmethod
+    def load_pickle(nameFile):
         """
         Use thise method to load an object from pickle
         """
         with open(nameFile) as infile:
             obj = cPickle.load(infile)
         return obj
+
+    @staticmethod
+    def save_csv(obj, name, path='/csv/'):
+        nameFile = path + name + '.csv'
+        with open(nameFile, 'w') as out:
+            csv_out = csv.writer(out)
+            for row in obj:
+                csv_out.writerow(row)
+
 
     # ________________________________________________________________________#
     # _______________________ Private functions ______________________________#
