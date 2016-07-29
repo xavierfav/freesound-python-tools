@@ -319,7 +319,7 @@ class Sound(FreesoundObject):
         params = {}
         if descriptors:
             params['descriptors']=descriptors
-        return FSRequest.request(uri, params,self.client,FreesoundObject)
+        return FSRequest.request(uri, params, self.client, FreesoundObject)
 
     def get_analysis_frames(self):
         """

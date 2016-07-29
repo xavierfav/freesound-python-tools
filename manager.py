@@ -94,6 +94,10 @@ class Client(freesound.FreesoundClient):
         return self._local_('local_analysis')
 
     @property
+    def local_analysis_stats(self):
+        return self._local_('local_analysis_stats')
+
+    @property
     def local_baskets_pickle(self):
         return self._local_('local_baskets_pickle')
 
@@ -163,6 +167,7 @@ class Client(freesound.FreesoundClient):
 
         return analysis
 
+    # TODO: this does not work
     def my_get_analysiss(self, idsToLoad):
         """
         TODO : adapt it to return an Analysis object
@@ -175,6 +180,19 @@ class Client(freesound.FreesoundClient):
         for i in range(nbAnalysis):
             analysis.append(self.my_get_analysis(idsToLoad[i]))
             Bar.update(i+1)
+
+        return analysis
+
+    # TODO: dont load the sound is the sound is givent as arguement istead of the id
+    def my_get_analysis_stats(self, idToLoad):
+        settings = SettingsSingleton()
+        analysis = None
+        if idToLoad not in settings.local_analysis_stats:
+            analysis = self._load_analysis_stats_freesound(idToLoad)
+            if settings.autoSave:
+                self._save_analysis_stats_json(analysis, idToLoad)
+        else:
+            analysis = self._load_analysis_stats_json(idToLoad)
 
         return analysis
 
@@ -195,6 +213,7 @@ class Client(freesound.FreesoundClient):
             with open(nameFile) as infile:
                 obj = cPickle.load(infile)
             obj.parent_client = self
+            obj._actualize()
             return obj
         else:
             print '%s basket does not exist' % name
@@ -275,7 +294,6 @@ class Client(freesound.FreesoundClient):
                 sleep(1)
                 print e, 'id ' + str(idToLoad)
 
-
     def _save_analysis_json(self, analysis, idSound):
         """
         Save an analysis into a json file
@@ -336,6 +354,43 @@ class Client(freesound.FreesoundClient):
         else:
             return None
 
+    def _save_analysis_stats_json(self, analysis, idSound):
+        settings = SettingsSingleton()
+        if analysis and not (idSound in settings.local_analysis_stats):
+            nameFile = 'analysis_stats/' + str(idSound) + '.json'
+            with open(nameFile, 'w') as outfile:
+                json.dump(analysis.as_dict(), outfile)
+            settings.local_analysis_stats.append(int(idSound))
+            settings.local_analysis_stats.sort()
+
+    def _load_analysis_stats_freesound(self, idToLoad):
+        """
+        Load analysis stats from Freesound
+        """
+        sound = self.my_get_sound(idToLoad)
+        try:
+            analysis = sound.get_analysis()
+            return analysis
+        except ValueError:
+            return None
+        except freesound.FreesoundException:
+            return None
+        except URLError:
+            return None
+
+    def _load_analysis_stats_json(self, idToLoad):
+        """
+        Load analysis from local json file
+        """
+        settings = SettingsSingleton()
+        if idToLoad in settings.local_analysis_stats:
+            nameFile = 'analysis_stats/' + str(idToLoad) + '.json'
+            with open(nameFile) as infile:
+                analysis = freesound.FreesoundObject(json.load(infile), self)
+            return analysis
+        else:
+            return None
+
     @staticmethod
     def _scan_folder():
         """
@@ -354,6 +409,8 @@ class Client(freesound.FreesoundClient):
             os.makedirs('baskets_pickle')
         if not os.path.exists('previews'):
             os.makedirs('previews')
+        if not os.path.exists('analysis_stats'):
+            os.makedirs('analysis_stats')
 
         # create variable with present local sounds & analysis
         # (reduce time consumption for function loading json files)
@@ -361,12 +418,14 @@ class Client(freesound.FreesoundClient):
         files_analysis = os.listdir('./analysis/')
         files_baskets = os.listdir('./baskets/')
         files_baskets_pickle = os.listdir('./baskets_pickle/')
+        files_analysis_stats = os.listdir('./analysis_stats/')
 
         settings = SettingsSingleton()
         settings.local_sounds = []
         settings.local_analysis = []
         settings.local_baskets = []
         settings.local_baskets_pickle = []
+        settings.local_analysis_stats = []
 
         for i in files_sounds:
             settings.local_sounds.append(int(i[:-5]))
@@ -376,8 +435,11 @@ class Client(freesound.FreesoundClient):
             settings.local_baskets.append(m[:-5])
         for n in files_baskets_pickle:
             settings.local_baskets_pickle.append(n)
+        for k in files_analysis_stats:
+            settings.local_analysis_stats.append(int(k[:-5]))
         settings.local_sounds.sort()
         settings.local_analysis.sort()
+        settings.local_analysis_stats.sort()
 
     def _init_oauth(self):
         try:
@@ -508,13 +570,16 @@ class Basket:
     >>> b = c.new_basket()
     TODO : add comments attribute, title...
     """
+
     def __init__(self, client):
         self.sounds = []
-        self.analysis = Analysis()
+        self.analysis = Analysis() # the use of the nested object is not rly good...
+        self.analysis_stats = []
         self.ids = []
         self.analysis_names = []
 
         self.parent_client = client
+        self._update_sound_client()
 
     def __add__(self, other):
         """
@@ -527,6 +592,15 @@ class Basket:
             sumBasket.sounds.append(other.sounds[i])
         sumBasket._remove_duplicate()
         return sumBasket
+
+    def _actualize(self): # used when an old basket is loaded from pickle
+        if not hasattr(self, 'analysis_stats'):
+            self.analysis_stats = []
+
+    def _update_sound_client(self):
+        for i, sound in enumerate(self.sounds):
+            if sound is not None:
+                sound.client = self.parent_client
 
     def _remove_duplicate(self):
         # TODO : add method to concatenate analysis in Analysis() (won't have to reload json...)
@@ -584,7 +658,7 @@ class Basket:
 
     def add_analysis(self, descriptor):
         """
-        Use this method to update the analysis.
+        Use this method to add the analysis.
         All the current loaded analysis will be erased
         All the analysis of the loaded sound ids will be loaded
 
@@ -615,6 +689,27 @@ class Basket:
             for i in range(nbAnalysisToLoad):
                 Bar.update(i + 1)
                 allFrames.append(self.parent_client.my_get_analysis(self.ids[i+nbAnalysis], nameAnalysis))
+
+    def add_analysis_stats(self):
+        """
+        Use this method to add all analysis stats to all sounds in the basket
+        (means and var of descriptors)
+        """
+        self.analysis_stats = []
+        nbSounds = len(self.sounds)
+        Bar = ProgressBar(nbSounds, LENGTH_BAR, 'Loading analysis stats')
+        Bar.update(0)
+        for i, sound in enumerate(self.sounds):
+            Bar.update(i + 1)
+            if sound is not None:
+                analysis = self.parent_client.my_get_analysis_stats(sound.id)
+                self.analysis_stats.append(analysis)
+            else:
+                self.analysis_stats.append(None)
+                # try:
+                #     self.analysis_stats.append(sound.get_analysis())
+                # except freesound.FreesoundException:
+                #     pass
 
     def remove_analysis(self, descriptor):
         if descriptor in self.analysis_names:
