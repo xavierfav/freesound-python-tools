@@ -894,7 +894,7 @@ class GraylogManager:
         self.auth = self._get_auth()
         self.url = 'http://logserver.mtg.upf.edu/graylog-api/'
         self.url_search_query = '/search/universal/absolute?query=query&' \
-                                            '&limit=' + str(int(self.limit_item)) + '&sort=timestamp%3Aasc'
+                                            '&limit=' + str(int(self.limit_item)) + '&sort=timestamp%3Aasc&fields=message'
         self.sql = SQLManager('freesound_queries')
         self.date_last_query_in_db = self._get_date_last_query_in_db()
 
@@ -940,6 +940,7 @@ class GraylogManager:
 
     @staticmethod
     def _request(u, auth):
+        headers = {'Content-type': 'application/json', 'Accept': 'application/json'}
         counter = 0
         while 1:  # Loop for trying 10 times the request with 1 sec delay
             counter += 1
@@ -947,7 +948,7 @@ class GraylogManager:
                 r = None
                 break
             try:
-                r = requests.get(u, auth=auth)
+                r = requests.get(u, auth=auth, headers = headers)
                 break
             except Exception as e:
                 print e
@@ -958,7 +959,6 @@ class GraylogManager:
         u = self.url + self.url_search_query + '&offset=' + str(offset) + '&'\
                                 + 'from=' + str(from_date) + '&to=' \
                                 + str(to_date)
-
         r = self._request(u, self.auth)
 
         # some manipulation of the data (the dict given with the graylog api request
@@ -969,6 +969,7 @@ class GraylogManager:
             except ValueError as e:
                 print 'No JSON object could be decoded'
                 return [], 0
+            
             total_results = r['total_results']
             r = r['messages']
             nb = len(r)
