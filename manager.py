@@ -639,9 +639,11 @@ class Basket:
             Bar.update(idx+1)
 
     def remove(self, index_list):
+        index_list = sorted(index_list, reverse=True)
         for i in index_list:
             del self.ids[i]
             del self.sounds[i]
+            del self.analysis_stats[i]
             for descriptor in self.analysis_names:
                 self.analysis.remove(i, descriptor)
 
