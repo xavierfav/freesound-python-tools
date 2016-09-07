@@ -62,7 +62,7 @@ class SplitSearch():
         # Print tag occurrences
         print '\n'
         for i in range(100):
-            print (self.t0[i][0].ljust(30) + str(float(self.t0[i][1])/len(self.t0))).ljust(80) + self.t1[i][0].ljust(30) + str(float(self.t1[i][1])/len(self.t0))
+            print (self.t0[i][0].ljust(30) + str(float(self.t0[i][1])/len(self.t0))).ljust(80) + self.t1[i][0].ljust(30) + str(float(self.t1[i][1])/len(self.t1))
     
     
 if __name__ == '__main__':

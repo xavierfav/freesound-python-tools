@@ -11,6 +11,7 @@ import freesound
 import os
 import json
 import ijson
+import simplejson
 from numpy import array
 from functools import reduce
 import cPickle
@@ -270,7 +271,7 @@ class Client(freesound.FreesoundClient):
         if idToLoad in settings.local_sounds:
             nameFile = 'sounds/' + str(idToLoad) + '.json'
             with open(nameFile) as infile:
-                sound = freesound.Sound(json.load(infile), self)
+                sound = freesound.Sound(simplejson.load(infile), self)
             return sound
         else:
             return None
@@ -315,7 +316,7 @@ class Client(freesound.FreesoundClient):
         if idToLoad in settings.local_analysis:
             nameFile = 'analysis/' + str(idToLoad) + '.json'
             with open(nameFile) as infile:
-                analysis = freesound.FreesoundObject(json.load(infile),self)
+                analysis = freesound.FreesoundObject(simplejson.load(infile),self)
             return analysis
         else:
             return None
@@ -523,7 +524,7 @@ class Analysis():
     def __init__(self, json_dict = None):
         if not json_dict:
             with open('analysis_template.json') as infile:
-                json_dict = json.load(infile)
+                json_dict = simplejson.load(infile)
 
         self.json_dict = json_dict
         def replace_dashes(d):
@@ -795,7 +796,7 @@ class Basket:
         if name and name in settings.local_baskets:
             nameFile = 'baskets/' + name + '.json'
             with open(nameFile) as infile:
-                basket = json.load(infile)
+                basket = simplejson.load(infile)
             ids = basket[0]
             nbSounds = len(ids)
             for i in range(nbSounds):
@@ -1130,7 +1131,7 @@ class DictObject:
     def __init__(self, json_dict=None):
         if not json_dict:
             with open('analysis_template.json') as infile:
-                json_dict = json.load(infile)
+                json_dict = simplejson.load(infile)
 
         self.json_dict = json_dict
 
