@@ -113,7 +113,14 @@ class Client(freesound.FreesoundClient):
         >>> c = manager.Client()
         >>> result = c.my_text_search(query="wind")
         """
-        results_pager = self.text_search(fields="id",page_size=150,**param)
+        
+        fields = 'id,'
+        try:
+            fields += param['fields']
+            param.pop('fields')
+        except:
+            pass
+        results_pager = self.text_search(fields=fields, page_size=150, **param)
         #self.text_search(fields="id,name,url,tags,description,type,previews,filesize,bitrate,bitdepth,duration,samplerate,username,comments,num_comments,analysis_frames",page_size=150,**param)
         return results_pager
 
@@ -196,7 +203,7 @@ class Client(freesound.FreesoundClient):
             analysis = self._load_analysis_stats_json(idToLoad)
 
         return analysis
-
+    
     def new_basket(self):
         """
         Create a new Basket
@@ -618,7 +625,7 @@ class Basket:
 
     #________________________________________________________________________#
     # __________________________ Users functions ____________________________#
-    def push(self, sound):
+    def push(self, sound, analysis_stat=None):
         """
         >>> sound = c.my_get_sound(query='wind')
         >>> b.push(sound)
@@ -630,6 +637,9 @@ class Basket:
             self.ids.append(sound.id)
         else:
             self.ids.append(None)
+        if analysis_stat is not None:
+            self.analysis_stats.append(analysis_stat)
+
 
     def push_list_id(self, sounds_id):
         Bar = ProgressBar(len(sounds_id), LENGTH_BAR, 'Loading sounds')
@@ -719,6 +729,46 @@ class Basket:
             self.analysis.remove('all', descriptor)
             self.analysis_names.remove(descriptor)
 
+    def load_sounds_(self, results_pager, begin_idx=0, debugger=None):
+        """ 
+        IN PROGRESS
+        This function is used when the data to load in the basket is in the pager (and not just the id like for the next function)
+        """
+        nbSound = results_pager.count
+        numSound = begin_idx # for iteration
+        results_pager_last = results_pager
+        Bar = ProgressBar(nbSound,LENGTH_BAR,'Loading sounds')
+        Bar.update(0)
+        # 1st iteration                              # maybe there is a better way to iterate through pages...
+        for sound in results_pager:
+            self.push(sound, sound.analysis)
+            numSound = numSound+1
+            Bar.update(numSound+1)
+
+        # next iteration
+        while (numSound<nbSound):
+            count = 0
+            while 1: # care with this infinite loop...
+                count += 1
+                if count>10: # MAYBE SOME BUG HERE
+                    print 'could not get more sounds'
+                    break
+                try:
+                    results_pager = results_pager_last.next_page()
+                    if debugger:
+                        debugger.append(results_pager)
+                    break
+                except:
+                    exc_info = sys.exc_info()
+                    sleep(1)
+                    print exc_info
+            for sound in results_pager:
+                self.push(sound, sound.analysis)
+                numSound = numSound+1
+                Bar.update(numSound+1)
+            results_pager_last = results_pager
+
+            
     def load_sounds(self, results_pager, begin_idx=0, debugger=None):
         """
         Use this method to load all the sounds from a result pager int the basket
@@ -740,7 +790,12 @@ class Basket:
 
         # next iteration
         while (numSound<nbSound):
+            count = 0
             while 1: # care with this infinite loop...
+                count += 1
+                if count>10: # MAYBE SOME BUG HERE
+                    print 'could not get more sounds'
+                    break
                 try:
                     results_pager = results_pager_last.next_page()
                     if debugger:
@@ -1184,9 +1239,9 @@ def strip_non_ascii(string):
     return ''.join(stripped)
 
 freesound_rocks_ascii_art = \
-"   ______                                        _    _____            _       \n \
- |  ____|                                      | |  |  __ \          | |       \n \
- | |__ _ __ ___  ___  ___  ___  _   _ _ __   __| |  | |__) |___   ___| | _____ \n \
- |  __| '__/ _ \/ _ \/ __|/ _ \| | | | '_ \ / _` |  |  _  // _ \ / __| |/ / __| \n \
- | |  | | |  __/  __/\__ \ (_) | |_| | | | | (_| |  | | \ \ (_) | (__|   <\__ \ \n \
- |_|  |_|  \___|\___||___/\___/ \__,_|_| |_|\__,_|  |_|  \_\___/ \___|_|\_\___/ \n"
+"   ______                                        _   _____            _       \n \
+ |  ____|                                      | | |  __ \          | |       \n \
+ | |__ _ __ ___  ___  ___  ___  _   _ _ __   __| | | |__) |___   ___| | _____ \n \
+ |  __| '__/ _ \/ _ \/ __|/ _ \| | | | '_ \ / _` | |  _  // _ \ / __| |/ / __| \n \
+ | |  | | |  __/  __/\__ \ (_) | |_| | | | | (_| | | | \ \ (_) | (__|   <\__ \ \n \
+ |_|  |_|  \___|\___||___/\___/ \__,_|_| |_|\__,_| |_|  \_\___/ \___|_|\_\___/ \n"

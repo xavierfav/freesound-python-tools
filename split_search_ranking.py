@@ -9,10 +9,10 @@ class SplitSearch():
 
     def search(self, query):
         """Query to Freesound api, load sounds and analysis stats into a Basket"""
-        self.rep = self.c.my_text_search(query=query)
+        self.rep = self.c.my_text_search(query=query, fields='id,name,tags,analysis', descriptors='lowlevel.mfcc.mean')
         self.b = self.c.new_basket()
-        self.b.load_sounds(self.rep)
-        self.b.add_analysis_stats()
+        self.b.load_sounds_(self.rep)
+        #self.b.add_analysis_stats()
 
     def extract_descriptors(self):
         # Create arrays of MFCC and Freesound sound ids ; remove sounds that do not have analysis stats
@@ -59,7 +59,7 @@ class SplitSearch():
         print '\n'
         for idx, tag in enumerate(self.normalized_tags_occurrences[num_basket]):
             if idx < max_tag:
-                print tag[0].ljust(30) + str(tag[1])
+                print tag[0].ljust(30) + str(tag[1])[0:5]
             else:
                 break
     
@@ -70,16 +70,19 @@ class SplitSearch():
         embed_blocks = ['<iframe frameborder="0" scrolling="no" src="https://www.freesound.org/embed/sound/iframe/', '/simple/medium/" width="481" height="86"></iframe>']
         
         # Create the html string
-        message = """<html>
-        <head></head>
-        <body>
+        message = """
+        <html>
+            <head></head>
+            <body>
         """
         for idx, ids in enumerate(self.list_baskets[num_cluster].ids):
             message += embed_blocks[0] + str(ids) + embed_blocks[1]
             if idx > 50:
                 break
-        message += """</body>
-        </html>"""
+        message += """
+            </body>
+        </html>
+        """
 
         # Create the file
         f = open('result_cluster'+ str(num_cluster) +'.html', 'w')
