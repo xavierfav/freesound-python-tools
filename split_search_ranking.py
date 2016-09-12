@@ -2,28 +2,44 @@ import manager
 import sys
 from sklearn import cluster
 import webbrowser
+import functools
+
+def rsetattr(obj, attr, val):
+    pre, _, post = attr.rpartition('.')
+    return setattr(rgetattr(obj, pre) if pre else obj, post, val)
+
+sentinel = object()
+def rgetattr(obj, attr, default=sentinel):
+    if default is sentinel:
+        _getattr = getattr
+    else:
+        def _getattr(obj, name):
+            return getattr(obj, name, default)
+    return functools.reduce(_getattr, [obj]+attr.split('.'))
+
 
 class SplitSearch():
-    def __init__(self):
+    def __init__(self, query, descriptor):
         self.c = manager.Client()
-
-    def search(self, query):
+        self.query = query
+        self.descriptor_name = descriptor # TODO : A way to load several descriptor
+        
+    def search(self):
         """Query to Freesound api, load sounds and analysis stats into a Basket"""
-        self.rep = self.c.my_text_search(query=query, fields='id,name,tags,analysis', descriptors='lowlevel.mfcc.mean')
+        self.rep = self.c.my_text_search(query=self.query, fields='id,name,tags,analysis', descriptors=self.descriptor_name)
         self.b = self.c.new_basket()
         self.b.load_sounds_(self.rep)
         #self.b.add_analysis_stats()
 
     def extract_descriptors(self):
-        # Create arrays of MFCC and Freesound sound ids ; remove sounds that do not have analysis stats
-        # TODO : ADD ARGUMENT WITH DESCRIPTOR CHOICE
-        self.MFCCs = []
+        # Create arrays of descriptors and Freesound sound ids ; remove sounds that do not have analysis stats
+        self.descriptor = []
         self.sound_ids = []
         self.sound_ids_no_stats = []
         self.sound_ids_to_remove = []
         for idx, item in enumerate(self.b.analysis_stats):
             if item:
-                self.MFCCs.append(item.lowlevel.mfcc.mean)
+                self.descriptor.append(rgetattr(item, self.descriptor_name))
                 self.sound_ids.append(self.b.sounds[idx].id)
             else:
                 self.sound_ids_no_stats.append(self.b.sounds[idx].id)
@@ -33,11 +49,15 @@ class SplitSearch():
         self.b_refined = self.b
         self.b_refined.remove(self.sound_ids_to_remove)
 
+        # Ensure that the dimension of the descriptor is NxK with N:nb data, K=dim
+        if not isinstance(self.descriptor[0], list):
+            self.descriptor = [[i] for i in self.descriptor]
+                   
     def cluster(self, nb_cluster):
         """Aplly kmeans clustering"""
         self.kmeans = cluster.KMeans(n_clusters=nb_cluster)
-        self.kmeans.fit(self.MFCCs)
-        self.clas = self.kmeans.fit_predict(self.MFCCs) 
+        self.kmeans.fit(self.descriptor)
+        self.clas = self.kmeans.fit_predict(self.descriptor) 
         
         # Get Freesound sound ids in relevance order and create the cluster Baskets
         self.list_baskets = [self.c.new_basket() for i in range(nb_cluster)]
@@ -96,11 +116,12 @@ class SplitSearch():
 if __name__ == '__main__':
     query = sys.argv[1]
     nb_cluster = int(sys.argv[2])
-    Search = SplitSearch()
-    Search.search(query)
+    descriptor = 'lowlevel.mfcc.var'#'sfx.inharmonicity.mean'#'lowlevel.barkbands.mean'
+    Search = SplitSearch(query, descriptor)
+    Search.search()
     Search.extract_descriptors()
     Search.cluster(nb_cluster)
     Search.get_tags()
     for i in range(nb_cluster):
         Search.print_basket(i, 20)
-        Search.create_html_for_cluster(i)
+        #Search.create_html_for_cluster(i)
