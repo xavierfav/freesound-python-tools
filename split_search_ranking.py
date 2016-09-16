@@ -30,7 +30,7 @@ class SplitSearch():
         self.b = self.c.new_basket()
         self.b.load_sounds_(self.rep)
         #self.b.add_analysis_stats()
-
+        
     def extract_descriptors(self):
         # Create arrays of descriptors and Freesound sound ids ; remove sounds that do not have analysis stats
         self.descriptor = []
@@ -52,7 +52,23 @@ class SplitSearch():
         # Ensure that the dimension of the descriptor is NxK with N:nb data, K=dim
         if not isinstance(self.descriptor[0], list):
             self.descriptor = [[i] for i in self.descriptor]
-                   
+                
+    def get_descriptors(self, scale=False):
+        self.descriptor = []
+        self.sound_ids = []
+        self.sound_ids_to_remove = []
+        for idx, item in enumerate(self.b.analysis_stats):
+            if item:
+                self.sound_ids.append(self.b.sounds[idx].id)
+            else:
+                self.sound_ids_to_remove.append(idx)
+        
+        # Create a Basket with only sounds that have analysis stats 
+        self.b_refined = self.b
+        self.b_refined.remove(self.sound_ids_to_remove)
+        # Extract descriptors stats
+        self.descriptor = self.b_refined.extract_descriptor_stats(scale=scale)
+
     def cluster(self, nb_cluster):
         """Aplly kmeans clustering"""
         self.kmeans = cluster.KMeans(n_clusters=nb_cluster)
@@ -116,10 +132,12 @@ class SplitSearch():
 if __name__ == '__main__':
     query = sys.argv[1]
     nb_cluster = int(sys.argv[2])
-    descriptor = 'lowlevel.mfcc.var'#'sfx.inharmonicity.mean'#'lowlevel.barkbands.mean'
+    #descriptor = 'lowlevel.mfcc.var,sfx.inharmonicity.mean'#'lowlevel.barkbands.mean'
+    descriptor = 'lowlevel.mfcc.mean,lowlevel.mfcc.var,lowlevel.spectral_flatness_db.mean,lowlevel.spectral_flatness_db.var'
     Search = SplitSearch(query, descriptor)
     Search.search()
-    Search.extract_descriptors()
+    #Search.extract_descriptors()
+    Search.get_descriptors(scale=False)
     Search.cluster(nb_cluster)
     Search.get_tags()
     for i in range(nb_cluster):

@@ -27,7 +27,7 @@ import requests
 from math import ceil
 import datetime
 import csv
-
+from sklearn import preprocessing
 
 LENGTH_BAR = 30 # length of the progress bar
 
@@ -583,6 +583,7 @@ class Basket:
         self.sounds = []
         self.analysis = Analysis() # the use of the nested object is not rly good...
         self.analysis_stats = []
+        self.analysis_stats_names = []
         self.ids = []
         self.analysis_names = []
 
@@ -633,13 +634,11 @@ class Basket:
         """
         #sound.name = strip_non_ascii(sound.name)
         self.sounds.append(sound)
+        self.analysis_stats.append(analysis_stat)
         if sound is not None:
-            self.ids.append(sound.id)
+            self.ids.append(sound.id)      
         else:
             self.ids.append(None)
-        if analysis_stat is not None:
-            self.analysis_stats.append(analysis_stat)
-
 
     def push_list_id(self, sounds_id):
         Bar = ProgressBar(len(sounds_id), LENGTH_BAR, 'Loading sounds')
@@ -658,6 +657,13 @@ class Basket:
             for descriptor in self.analysis_names:
                 self.analysis.remove(i, descriptor)
 
+    def remove_sounds_with_no_analysis(self):
+        list_idx_to_remove = []
+        for idx, analysis in enumerate(self.analysis_stats):
+            if analysis is None:
+                list_idx_to_remove.append(idx)
+        self.remove(list_idx_to_remove)
+                
     def update_sounds(self):
         """
         Use this method to load the sounds which ids are in the basket
@@ -708,7 +714,7 @@ class Basket:
         Use this method to add all analysis stats to all sounds in the basket
         (means and var of descriptors)
         """
-        self.analysis_stats = []
+        #self.analysis_stats = []
         nbSounds = len(self.sounds)
         Bar = ProgressBar(nbSounds, LENGTH_BAR, 'Loading analysis stats')
         Bar.update(0)
@@ -716,7 +722,7 @@ class Basket:
             Bar.update(i + 1)
             if sound is not None:
                 analysis = self.parent_client.my_get_analysis_stats(sound.id)
-                self.analysis_stats.append(analysis)
+                self.analysis_stats[i] = analysis
             else:
                 self.analysis_stats.append(None)
                 # try:
@@ -768,7 +774,48 @@ class Basket:
                 Bar.update(numSound+1)
             results_pager_last = results_pager
 
-            
+    def extract_descriptor_stats(self, scale=False):
+        """
+        Returns a list of the scaled and concatenated descriptor stats - mean and var (all the one that are loaded in the Basket) for all sounds in the Basket.
+        """
+        feature_vector = []
+        for analysis_stats in self.analysis_stats:
+            feature_vector_single_sound = []
+            for k, v in analysis_stats.as_dict().iteritems():
+                if k == 'lowlevel':
+                    for k_, v_ in v.iteritems():
+                        try: # some lowlevel descriptors do not have 'mean' 'var' field (eg average_loudness)    
+                            # barkbands_kurtosis has 0 variance and that bring dvar and dvar2 to be None...
+                            if isinstance(v_['mean'], list):
+                                feature_vector_single_sound += v_['mean'] # take the mean
+                                feature_vector_single_sound += v_['dmean']
+                                feature_vector_single_sound += v_['dmean2']
+                                feature_vector_single_sound += v_['var'] # var
+                                feature_vector_single_sound += v_['dvar']
+                                feature_vector_single_sound += v_['dvar2']                                
+                            elif isinstance(v_['mean'], float):
+                                feature_vector_single_sound.append(v_['mean']) # for non array
+                                feature_vector_single_sound.append(v_['dmean'])
+                                feature_vector_single_sound.append(v_['dmean2'])
+                                feature_vector_single_sound.append(v_['var'])
+                                if k_ != 'barkbands_kurtosis':
+                                    feature_vector_single_sound.append(v_['dvar'])
+                                    feature_vector_single_sound.append(v_['dvar2'])
+                        except: # here we suppose that v_ is already a number to be stored 
+                            if isinstance(v_, list):
+                                feature_vector_single_sound += v_
+                            elif isinstance(v_, float):
+                                feature_vector_single_sound.append(v_)
+                elif k == 'other cat of descriptors':
+                    # sfx, tonal, rhythm
+                    pass
+            feature_vector.append(feature_vector_single_sound)
+        if scale:  
+            return preprocessing.scale(feature_vector)
+        else:
+            return feature_vector
+        
+        
     def load_sounds(self, results_pager, begin_idx=0, debugger=None):
         """
         Use this method to load all the sounds from a result pager int the basket
@@ -784,7 +831,7 @@ class Basket:
         Bar.update(0)
         # 1st iteration                              # maybe there is a better way to iterate through pages...
         for i in results_pager:
-            self.push(self.parent_client.my_get_sound(i.id))
+            self.push(self.parent_client.my_get_sound(i.id),analysis_stat=None)
             numSound = numSound+1
             Bar.update(numSound+1)
 
@@ -806,13 +853,17 @@ class Basket:
                     sleep(1)
                     print exc_info
             for i in results_pager:
-                self.push(self.parent_client.my_get_sound(i.id))
+                self.push(self.parent_client.my_get_sound(i.id),analysis_stat=None)
                 numSound = numSound+1
                 Bar.update(numSound+1)
             results_pager_last = results_pager
 
-    def retrieve_previews(self):
+    def retrieve_previews(self, new_folder = None):
         folder = './previews/'
+        if new_folder is not None:
+            folder += new_folder
+            if not os.path.exists(folder):
+                os.makedirs(folder) 
         nbSounds = len(self.sounds)
         Bar = ProgressBar(nbSounds, LENGTH_BAR, 'Downloading previews')
         Bar.update(0)
