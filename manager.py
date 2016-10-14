@@ -13,6 +13,7 @@ import json
 import ijson
 import simplejson
 from numpy import array
+import numpy as np
 from functools import reduce
 import cPickle
 from urllib2 import URLError
@@ -28,6 +29,10 @@ from math import ceil
 import datetime
 import csv
 from sklearn import preprocessing
+from scipy import spatial
+from igraph import *
+import scipy
+from sklearn.metrics.pairwise import cosine_similarity
 
 LENGTH_BAR = 30 # length of the progress bar
 
@@ -595,13 +600,25 @@ class Basket:
         Concatenate two baskets
         TODO : adapt it to new changes & make sure the order is not broken
         """
-        sumBasket = self
+        sumBasket = copy.deepcopy(self)
         for i in range(len(other.sounds)):
             sumBasket.ids.append(other.ids[i])
             sumBasket.sounds.append(other.sounds[i])
         sumBasket._remove_duplicate()
         return sumBasket
 
+    def __sub__(self, other):
+        """
+        Return a basket with elements of self that are not in other
+        """
+        subBasket = copy.deepcopy(self)
+        idx_to_remove = [x[0] for x in enumerate(self.ids) if x[1] in other.ids]
+        subBasket.remove(idx_to_remove)
+        return subBasket
+        
+    def __len__(self):
+        return len(self.ids)
+         
     def _actualize(self): # used when an old basket is loaded from pickle
         if not hasattr(self, 'analysis_stats'):
             self.analysis_stats = []
@@ -623,7 +640,7 @@ class Basket:
                 self.ids.append(ids_old[i])
                 self.sounds.append(sounds_old[i])
         self.update_analysis()
-
+    
     #________________________________________________________________________#
     # __________________________ Users functions ____________________________#
     def push(self, sound, analysis_stat=None):
@@ -653,7 +670,10 @@ class Basket:
         for i in index_list:
             del self.ids[i]
             del self.sounds[i]
-            del self.analysis_stats[i]
+            try:
+                del self.analysis_stats[i]
+            except IndexError:
+                pass
             for descriptor in self.analysis_names:
                 self.analysis.remove(i, descriptor)
 
@@ -798,7 +818,7 @@ class Basket:
                                 feature_vector_single_sound.append(v_['dmean'])
                                 feature_vector_single_sound.append(v_['dmean2'])
                                 feature_vector_single_sound.append(v_['var'])
-                                if k_ != 'barkbands_kurtosis':
+                                if k_ != 'barkbands_kurtosis': # this descriptor has variance = 0 => produce None values for dvar and dvar2
                                     feature_vector_single_sound.append(v_['dvar'])
                                     feature_vector_single_sound.append(v_['dvar2'])
                         except: # here we suppose that v_ is already a number to be stored 
@@ -927,7 +947,8 @@ class Basket:
 
     #________________________________________________________________________#
     # __________________________ Language tools _____________________________#
-
+    # TODO: CREATE A CLASS FOR THIS TOOLS, AND SEPARATE FROM BASKET 
+    
     def tags_occurrences(self):
         """
         Returns a list of tuples (tag, nb_occurrences, [sound ids])
@@ -935,7 +956,10 @@ class Basket:
         """
         all_tags_occurrences = []
         tags = self.tags_extract_all()
+        Bar = ProgressBar(len(tags), LENGTH_BAR, 'Thinking ...')
+        Bar.update(0)
         for idx, tag in enumerate(tags):
+            Bar.update(idx+1)
             tag_occurrences = self.tag_occurrences(tag)
             all_tags_occurrences.append((tag, tag_occurrences[0], tag_occurrences[1]))
             all_tags_occurrences = sorted(all_tags_occurrences, key=lambda oc: oc[1])
@@ -951,23 +975,181 @@ class Basket:
             number = len(ids)
         return number, ids
 
-    def description_occurrences(self, str):
+    def description_occurrences(self, stri):
         ids = []
         for i in range(len(self.sounds)):
-            if str in self.sounds[i].description:
+            if stri in self.sounds[i].description:
                 ids.append(i)
         number = len(ids)
         return number, ids
 
     def tags_extract_all(self):
         tags = []
-        for sound in self.sounds:
+        Bar = ProgressBar(len(self.sounds), LENGTH_BAR, 'Extracting tags')
+        Bar.update(0)
+        for idx, sound in enumerate(self.sounds):
+            Bar.update(idx + 1)
             if sound is not None:
                 for tag in sound.tags:
                     if tag not in tags:
                         tags.append(tag)
         return tags
+    
+    def create_sound_tag_dict(self):
+        """
+        Returns a dictionary with sound id in keys and tags in values
+        """
+        sound_tag_dict = {}
+        for sound in self.sounds:
+            sound_tag_dict[sound.id] = sound.tags
+        return sound_tag_dict
+    
+    
+#_________________________________________________________________#
+#                           NLP class                             #
+#_________________________________________________________________#
+class Nlp:
+    """ 
+    Methods for creating sparse occurrences matrix, similarity, graphs, etc...
+    """
+    def __init__(self, basket, tags_occurrences = None):
+        if tags_occurrences:
+            self.tags_occurrences = tags_occurrences
+        else:
+            self.tags_occurrences = basket.tags_occurrences()
+        self.set_tags = [tag[0] for tag in self.tags_occurrences]
+        self.freesound_sound_id = [sound.id for sound in basket.sounds]
+        self.sound_tags = [sound.tags for sound in basket.sounds]
+        self.inverted_tag_index = self._inverted_tag_index(self.set_tags)
+        self.nb_sound = len(self.freesound_sound_id)
+        self.nb_tag = len(self.set_tags)
+    
+    def _inverted_tag_index(self, set_tags):
+        inverted_tag_index = dict()
+        for idx, tag in enumerate(set_tags):
+            inverted_tag_index[tag] = idx
+        return inverted_tag_index   
+    
+    def create_sound_tag_matrix(self):
+        """
+        Returns scipy sparse matrix sound id / tag (2d array) - lil_matrix 
+        Sounds are ordered like in the Basket (=self object)
+        Tags are ordered like in the tags_occurrences list
+        """
+        Bar = ProgressBar(self.nb_sound, LENGTH_BAR, 'Creating matrix...')
+        Bar.update(0)
+        self.sound_tag_matrix = scipy.sparse.lil_matrix((self.nb_sound,self.nb_tag), dtype=int)
+        for idx_sound, tags in enumerate(self.sound_tags):
+            Bar.update(idx_sound+1)
+            for tag in tags:
+                self.sound_tag_matrix[idx_sound, self.inverted_tag_index[tag]] = 1
+    
+    def return_tag_cooccurrences_matrix(self):
+        """
+        Returns the tag to tag cooccurrences matrix by doing A_transpose * A where A is the sound to tag matrix occurrences
+        """
+        try:
+            return self.sound_tag_matrix.transpose() * self.sound_tag_matrix      
+        except:
+            print 'Create fist the sound tag matrix using create_sound_tag_matrix method'
+            
+    def return_similarity_matrix_tags(self, tag_something_matrix):
+        """
+        Returns a tag similarity matrix computed with cosine distance from the given matrix
+        MemoryError problem
+        """
+        tag_similarity_matrix = cosine_similarity(tag_something_matrix)
+        return tag_similarity_matrix
+    
+    def return_my_similarity_matrix_tags(self, tag_something_matrix):
+        """
+        TOO SLOW !!!
+        Returns a tag similarity matrix computed with cosine distance from the given matrix
+        """
+        size_matrix = tag_something_matrix.shape[0]
+        tag_similarity_matrix = np.zeros(shape=(size_matrix,size_matrix), dtype='float32')
+        Bar = ProgressBar(size_matrix*size_matrix/2, LENGTH_BAR, 'Calculating similarities...')
+        Bar.update(0)
+        for i0 in range(size_matrix):
+            row0 = tag_something_matrix.getrow(i0).toarray()
+            for i1 in range(i0):
+                Bar.update(i0*size_matrix + i1 + 1)
+                row1 = tag_something_matrix.getrow(i1).toarray()
+                tag_similarity_matrix[i0][i1] = 1 - spatial.distance.cosine(row0, row1)
+                tag_similarity_matrix[i1][i0] = tag_similarity_matrix[i0][i1]
+        return tag_similarity_matrix
+    
+    """
+    PRINT SOME SIMILARITIES BTW TAGS:
+    for i in range(200):
+        print str(i).ljust(10) + set_tags[i].ljust(30) + str(sim[67,i])
+    """
+     
+    def create_tag_sound_matrix(self, tags_occurrences):
+        """
+        DO NOT USE THIS - TODO: implement it like sound_tag_matrix. Or just call create_sound_tag_matrix and transpose it...
+        Returns a matrix tag / sound id 
+        Ordered like in tags_occurrences and in the Basket (=self)
+        """
+        tag_sound_matrix = []
+        for tag in tags_occurrences:
+            sound_vect = [0] * len(self.nb_sounds)
+            for sound_id_in_basket in tag[2]:
+                sound_vect[sound_id_in_basket] = 1
+            tag_sound_matrix.append(sound_vect)
+        return tag_sound_matrix
+    
+    def create_tag_similarity_graph(self, tag_similarity_matrix, tag_names, threshold):
+        """
+        TODO : ADAPT IT FOR NetworkX package
+        Returns the tag similarity graph (unweighted) from the tag similarity matrix
+        """
+        g = Graph()
+        g.add_vertices(len(tag_names))
+        g.vs["name"] = tag_names
+        g.vs["label"] = g.vs["name"]
+        for tag_i in range(len(tag_similarity_matrix)):
+            for tag_j in range(len(tag_similarity_matrix)):
+                if tag_i < tag_j:
+                    if tag_similarity_matrix[tag_i][tag_j] > threshold:
+                        g.add_edge(tag_i, tag_j)
+        return g
+    
+    def get_centrality_from_graph(self, graph):
+        return g.evcent()
+    
+    # TODO : ORDER TAG BY CENTRALITY
+    # name_cent = [ (t[i], cent[i]) for i in range(len(t))]
+    # name_cent.sort(key=lambda x: x[1], reverse=True)
 
+    # TODO : CREATE FUNCTION FOR CREATION OF TAXONOMY
+#    g2 = Graph.Tree(2,1)
+#    g2.add_vertices(58978)
+#    g2.vs["name"] = names
+#    g2.vs["label"] = g2.vs["name"]
+#    list_tags_in_tax = [0]
+#
+#    for idx in range(58978):
+#            idx = idx + 1
+#            maxCandidateVal = 0
+#            for tag_1 in list_tags_in_tax:
+#                    if not tag_1 == idx:
+#                            if s_m_t[idx][tag_1] > maxCandidateVal:
+#                                    maxCandidateVal = s_m_t[idx][tag_1]
+#                                    maxCandidate = tag_1
+#            if maxCandidateVal > 0.5:
+#                    g2.add_edge(tag_1+1,idx+1)
+#                    print 'added edge'
+#                    print maxCandidateVal
+#            else:
+#                    g2.add_edge(0,idx+1)
+#                    print 'added edge to root'
+#            list_tags_in_tax.append(idx)
+    
+    # TODO : PUT THIS GRAPH THINGS IN AN OTHER CLASS
+    
+    
+    
 # _________________________________________________________________#
 #                           SQL class                              #
 # _________________________________________________________________#

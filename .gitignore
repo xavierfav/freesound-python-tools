@@ -15,3 +15,4 @@ api_key.py
 graylog_auth.py
 update_query_logs_db.py
 .brackets.json
+tag_sim/
