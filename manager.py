@@ -33,6 +33,10 @@ from scipy import spatial
 from igraph import *
 import scipy
 from sklearn.metrics.pairwise import cosine_similarity
+import re
+from nltk.stem.porter import PorterStemmer
+from sklearn.feature_extraction.text import CountVectorizer
+from stop_words import get_stop_words
 
 LENGTH_BAR = 30 # length of the progress bar
 
@@ -962,8 +966,8 @@ class Basket:
             Bar.update(idx+1)
             tag_occurrences = self.tag_occurrences(tag)
             all_tags_occurrences.append((tag, tag_occurrences[0], tag_occurrences[1]))
-            all_tags_occurrences = sorted(all_tags_occurrences, key=lambda oc: oc[1])
-            all_tags_occurrences.reverse()
+        all_tags_occurrences = sorted(all_tags_occurrences, key=lambda oc: oc[1])
+        all_tags_occurrences.reverse()
         return all_tags_occurrences
 
     def tag_occurrences(self, tag):
@@ -1004,7 +1008,74 @@ class Basket:
             sound_tag_dict[sound.id] = sound.tags
         return sound_tag_dict
     
+    def get_preprocessed_descriptions_word2vec(self):
+        """
+        Returns a list of sentences from sound descriptions in the basket.
+        Preprocessing is done (remove special characters, Porter Stemming, lower case)
+        """
+        stemmer = PorterStemmer()
+        delimiters = '.', '?', '!', ':'
+        def split(delimiters, string, maxsplit=0):
+            regexPattern = '|'.join(map(re.escape, delimiters))
+            return re.split(regexPattern, string, maxsplit)
+        
+        all_descriptions = [a.description.lower() for a in self.sounds]
+        sentences = []
+        
+        for description in all_descriptions:
+            string = description.replace('\r\n', ' ')
+            string = string.replace('(', ' ')
+            string = string.replace(')', ' ')
+            string = string.replace('*', '')
+            string = string.replace('-', '')
+            string = string.replace('#', '')
+            string = string.replace(',', '')
+            string = string.replace('/', '')
+            string = re.sub('<a href(.)+>', ' ', string)
+            string = split(delimiters, string)
+            for string_sentence in string:
+                if string_sentence is not u'':
+                    terms_to_append = [stemmer.stem(a) for a in string_sentence.split()]
+                    sentences.append(terms_to_append)
     
+        return sentences
+    
+    def word2vec(self, sentences, size=50):
+        from gensim.models import Word2Vec
+        return Word2Vec(sentences, size=size, window=500, min_count=10, workers=8)
+    
+    def doc2vec(self, documents, size=50):
+        """ 
+        This method seems to give worse result on returning most similar terms for violin, bright
+        """
+        from gensim.models import Doc2Vec
+        return Doc2Vec(documents, size=size, window=500, min_count=10, workers=8)
+    
+    def preprocessing_tag_description(self):
+        """
+        Preprocessing tags and descriptions
+        Returns an array containing arrays of terms for each sound
+        Steps for descriptions : Lower case, remove urls, Tokenization, remove stop words, Stemming (Porter)
+                    tags       : Lower case, Stemming
+        """
+        stemmer = PorterStemmer()
+        en_stop = get_stop_words('en') + ['freesound', 'org']
+        
+        all_descriptions = [[stemmer.stem(word) for word in CountVectorizer().build_tokenizer()(re.sub('<a href(.)+/a>', ' ', sound.description.lower())) if word not in en_stop] for sound in self.sounds]
+        all_tags = [[stemmer.stem(tag.lower()) for tag in sound.tags] for sound in self.sounds]
+        
+        return [tag + description for tag, description in zip(all_tags, all_descriptions)]
+    
+    def preprocessing_doc2vec(self):
+        from gensim.models.doc2vec import TaggedDocument
+        stemmer = PorterStemmer()
+        en_stop = get_stop_words('en') + ['freesound', 'org']
+        
+        all_descriptions = [[stemmer.stem(word) for word in CountVectorizer().build_tokenizer()(re.sub('<a href(.)+/a>', ' ', sound.description.lower())) if word not in en_stop] for sound in self.sounds]
+        all_tags = [[stemmer.stem(tag.lower()) for tag in sound.tags] for sound in self.sounds]
+        
+        return [TaggedDocument(words, tags) for words, tags in zip(all_descriptions, all_tags)]
+        
 #_________________________________________________________________#
 #                           NLP class                             #
 #_________________________________________________________________#
@@ -1097,8 +1168,9 @@ class Nlp:
             for sound_id_in_basket in tag[2]:
                 sound_vect[sound_id_in_basket] = 1
             tag_sound_matrix.append(sound_vect)
-        return tag_sound_matrix
+        return tag_sound_matrix    
     
+    # __________________ GRAPH __________________ #
     def create_tag_similarity_graph(self, tag_similarity_matrix, tag_names, threshold):
         """
         TODO : ADAPT IT FOR NetworkX package
