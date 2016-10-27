@@ -6,7 +6,7 @@ from script_hierar_cluster_tag import *
 import numpy as np
 
 c  = manager.Client(False)
-b = c.load_basket_pickle('freesoundDb') 
+b = c.load_basket_pickle('FreesoundDb') 
 r = b.preprocessing_tag_description()
 #r = b.preprocessing_doc2vec()
 
@@ -15,7 +15,8 @@ tags = c.load_pickle('pickles/tags_occurrences_stem.pkl')
 voc = [t[0] for t in tags]
 
 model = run_word2vec(b, r, 30)
-docs = create_doc_vec(model, r)
+#docs = create_doc_vec(model, r)
+
 """
 
 def run_word2vec(b, r, size_space):
@@ -43,7 +44,12 @@ def create_doc_vec(model, r):
         v = v / count
         docs.append(v)
     return docs
-                
+
+def create_doc_vec_with_tfidf(b, model, r):
+    t = b.TfidfEmbeddingVectorizer(model)
+    t = t.fit(r, None)
+    return dict(zip(w2v_model.index2word,t.transform(r)))
+
 def cluster(model, voc, nb_tags = 50):
     import matplotlib.pyplot as plt
     from scipy.cluster.hierarchy import dendrogram, linkage

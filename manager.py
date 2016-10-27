@@ -1083,7 +1083,7 @@ class Basket:
         def __init__(self, w2v_model):
             self.word2vec = dict(zip(w2v_model.index2word, w2v_model.syn0))
             self.word2weight = None
-            self.dim = len(word2vec.itervalues().next())
+            self.dim = len(w2v_model.itervalues().next())
 
         def fit(self, X, y):
             tfidf = TfidfVectorizer(analyzer=lambda x: x)
