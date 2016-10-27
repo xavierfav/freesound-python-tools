@@ -16,7 +16,7 @@ voc = [t[0] for t in tags]
 
 model = run_word2vec(b, r, 30)
 #docs = create_doc_vec(model, r)
-
+docs = create_doc_vec_with_tfidf(b, model, r)
 """
 
 def run_word2vec(b, r, size_space):
