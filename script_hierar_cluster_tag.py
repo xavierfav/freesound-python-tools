@@ -49,7 +49,7 @@ def create_doc_vec(model, r):
 def create_doc_vec_with_tfidf(b, model, r):
     t = b.TfidfEmbeddingVectorizer(model)
     t = t.fit(r, None)
-    return dict(zip(model.index2word,t.transform(r)))
+    return dict(zip(b.ids,t.transform(r)))
 
 def cluster(model, voc, nb_tags = 50):
     import matplotlib.pyplot as plt
