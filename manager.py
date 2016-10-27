@@ -1080,8 +1080,8 @@ class Basket:
         return [TaggedDocument(words, tags) for words, tags in zip(all_descriptions, all_tags)]
         
     class TfidfEmbeddingVectorizer(object):
-        def __init__(self, word2vec):
-            self.word2vec = word2vec
+        def __init__(self, w2v_model):
+            self.word2vec = dict(zip(w2v_model.index2word, w2v_model.syn0))
             self.word2weight = None
             self.dim = len(word2vec.itervalues().next())
 
