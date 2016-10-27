@@ -17,6 +17,7 @@ voc = [t[0] for t in tags]
 model = run_word2vec(b, r, 30)
 #docs = create_doc_vec(model, r)
 docs = create_doc_vec_with_tfidf(b, model, r)
+
 """
 
 def run_word2vec(b, r, size_space):
@@ -48,7 +49,7 @@ def create_doc_vec(model, r):
 def create_doc_vec_with_tfidf(b, model, r):
     t = b.TfidfEmbeddingVectorizer(model)
     t = t.fit(r, None)
-    return dict(zip(w2v_model.index2word,t.transform(r)))
+    return dict(zip(model.index2word,t.transform(r)))
 
 def cluster(model, voc, nb_tags = 50):
     import matplotlib.pyplot as plt
