@@ -81,9 +81,9 @@ def cluster(model, voc, nb_tags = 50):
             leaf_font_size=8.,
             show_contracted=True,  # to get a distribution impression in truncated branche
             labels=voc_to_test)
-
     plt.show()
-
+    return Z
+    
 # k-means
 def cluster2(model, voc, nb_tags = 50):
     # kmeans from : http://scikit-learn.org/stable/auto_examples/cluster/plot_kmeans_digits.html
