@@ -1,5 +1,4 @@
 from tabulate import tabulate
-%matplotlib inline
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
