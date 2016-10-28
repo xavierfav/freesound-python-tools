@@ -53,7 +53,7 @@ def create_doc_vec_with_tfidf(b, model, r):
 
 def cluster(model, voc, nb_tags = 50):
     import matplotlib
-    matplotlib.use('Agg')
+    #matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     from scipy.cluster.hierarchy import dendrogram, linkage
 
