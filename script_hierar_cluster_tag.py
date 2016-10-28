@@ -52,8 +52,10 @@ def create_doc_vec_with_tfidf(b, model, r):
     return dict(zip(b.ids,t.transform(r)))
 
 def cluster(model, voc, nb_tags = 50):
+    import matplotlib
     import matplotlib.pyplot as plt
     from scipy.cluster.hierarchy import dendrogram, linkage
+    matplotlib.use('Agg')
 
     # constructing the data
     voc_to_test = voc[:nb_tags]
