@@ -21,15 +21,13 @@ c = manager.Client(False)
 
 # loading baskets
 b_UrbanSound8K = c.load_basket_pickle('UrbanSound8K') # This basket has been actualize (cleaning + added clas)
-b_FreesoundDb = c.load_basket_pickle('freesoundDb') # FreesoundDb exist only on devaraya node. In local use freesoundDb (from april 2016)
+b_FreesoundDb = c.load_basket_pickle('FreesoundDb') # FreesoundDb exist only on devaraya node. In local use freesoundDb (from april 2016)
 
 # preprocess text data and getting class
 X = np.array(b_UrbanSound8K.preprocessing_tag_description())
 y = np.array(b_UrbanSound8K.clas)
 X_FreesoundDb = np.array(b_FreesoundDb.preprocessing_tag_description())
 
-
-    
 # Creating array of w2v size to test
 size_w2v_array = range(5,100,1)
 #size_w2v = 20
