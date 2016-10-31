@@ -1,6 +1,6 @@
 from tabulate import tabulate
 import matplotlib.pyplot as plt
-import seaborn as sns
+#import seaborn as sns
 #import pandas as pd
 import numpy as np
 from gensim.models.word2vec import Word2Vec
