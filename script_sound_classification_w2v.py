@@ -15,7 +15,6 @@ from sklearn.cross_validation import StratifiedShuffleSplit
 from sklearn.utils import shuffle
 import random
 
-
 import manager
 c = manager.Client(False)
 
@@ -28,14 +27,65 @@ X = np.array(b_UrbanSound8K.preprocessing_tag_description())
 y = np.array(b_UrbanSound8K.clas)
 X_FreesoundDb = np.array(b_FreesoundDb.preprocessing_tag_description())
 
+# class and methods for embedding sounds with w2v (cf: https://github.com/nadbordrozd/blog_stuff/blob/master/classification_w2v/benchmarking.ipynb)
+class MeanEmbeddingVectorizer(object):
+    def __init__(self, word2vec):
+        self.word2vec = word2vec
+        self.dim = len(word2vec.itervalues().next())
+
+    def fit(self, X, y):
+        return self 
+
+    def transform(self, X):
+        return np.array([
+            np.mean([self.word2vec[w] for w in words if w in self.word2vec] 
+                    or [np.zeros(self.dim)], axis=0)
+            for words in X
+        ])
+
+# and a tf-idf version of the same
+class TfidfEmbeddingVectorizer(object):
+    def __init__(self, word2vec):
+        self.word2vec = word2vec
+        self.word2weight = None
+        self.dim = len(word2vec.itervalues().next())
+
+    def fit(self, X, y):
+        tfidf = TfidfVectorizer(analyzer=lambda x: x)
+        tfidf.fit(X)
+        # if a word was never seen - it must be at least as infrequent
+        # as any of the known words - so the default idf is the max of 
+        # known idf's
+        max_idf = max(tfidf.idf_)
+        self.word2weight = defaultdict(
+            lambda: max_idf, 
+            [(w, tfidf.idf_[i]) for w, i in tfidf.vocabulary_.items()])
+
+        return self
+
+    def transform(self, X):
+        return np.array([
+                np.mean([self.word2vec[w] * self.word2weight[w]
+                         for w in words if w in self.word2vec] or
+                        [np.zeros(self.dim)], axis=0)
+                for words in X
+            ])
+
 # Creating array of w2v size to test
 size_w2v_array = range(5,100,1)
 #size_w2v = 20
 
-for size_w2v in size_w2v_array:
+# Progress bar
+Bar = manager.ProgressBar(len(size_w2v_array), 50, '')
+Bar.update(0)
 
+# Test different sizes of w2v
+for idx, size_w2v in enumerate(size_w2v_array):
+    # update bar
+    Bar.update(idx+1)
+    
     # Try different ordering of data
-    for _ in range(5):
+    for _ in range(3):
         # randomize order
         X, y = shuffle(X, y, random_state=0)
         X_FreesoundDb = shuffle(X_FreesoundDb, random_state=0)
@@ -46,52 +96,6 @@ for size_w2v in size_w2v_array:
 
         w2v_UrbanSound8K = {w: vec for w, vec in zip(model_UrbanSound8K.index2word, model_UrbanSound8K.syn0)}
         w2v_FreesoundDb = {w: vec for w, vec in zip(model_FreesoundDb.index2word, model_FreesoundDb.syn0)}
-
-
-        # class and methods for embedding sounds with w2v (cf: https://github.com/nadbordrozd/blog_stuff/blob/master/classification_w2v/benchmarking.ipynb)
-        class MeanEmbeddingVectorizer(object):
-            def __init__(self, word2vec):
-                self.word2vec = word2vec
-                self.dim = len(word2vec.itervalues().next())
-
-            def fit(self, X, y):
-                return self 
-
-            def transform(self, X):
-                return np.array([
-                    np.mean([self.word2vec[w] for w in words if w in self.word2vec] 
-                            or [np.zeros(self.dim)], axis=0)
-                    for words in X
-                ])
-
-        # and a tf-idf version of the same
-        class TfidfEmbeddingVectorizer(object):
-            def __init__(self, word2vec):
-                self.word2vec = word2vec
-                self.word2weight = None
-                self.dim = len(word2vec.itervalues().next())
-
-            def fit(self, X, y):
-                tfidf = TfidfVectorizer(analyzer=lambda x: x)
-                tfidf.fit(X)
-                # if a word was never seen - it must be at least as infrequent
-                # as any of the known words - so the default idf is the max of 
-                # known idf's
-                max_idf = max(tfidf.idf_)
-                self.word2weight = defaultdict(
-                    lambda: max_idf, 
-                    [(w, tfidf.idf_[i]) for w, i in tfidf.vocabulary_.items()])
-
-                return self
-
-            def transform(self, X):
-                return np.array([
-                        np.mean([self.word2vec[w] * self.word2weight[w]
-                                 for w in words if w in self.word2vec] or
-                                [np.zeros(self.dim)], axis=0)
-                        for words in X
-                    ])
-
 
         # Model definition
         svc = Pipeline([("count_vectorizer", CountVectorizer(analyzer=lambda x: x)), ("linear svc", SVC(kernel="linear"))])
