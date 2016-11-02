@@ -118,11 +118,16 @@ for size_w2v in size_w2v_array:
         scores = sorted([(name, cross_val_score(model, X, y, cv=5).mean()) 
                          for name, model in all_models], 
                         key=lambda (_, x): -x)
-        print 'size_w2vec = ' + str(size_w2v)
-        print '\n'
-        print tabulate(scores, floatfmt=".4f", headers=("model", 'score'))
-        print '\n'
-        print '________________________________________________'
+	
+        result = ''
+        result += 'size_w2vec = ' + str(size_w2v)
+        result += '\n'
+        result += tabulate(scores, floatfmt=".4f", headers=("model", 'score'))
+        result += '\n'
+        result += '________________________________________________'
+        result += '\n'
+        with open('results_w2v', 'a') as f:
+            f.write(result)
 
 #plt.figure(figsize=(15, 6))
 #sns.barplot(x=[name for name, _ in scores], y=[score for _, score in scores])
