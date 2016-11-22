@@ -39,6 +39,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from stop_words import get_stop_words
 from sklearn.feature_extraction.text import TfidfVectorizer
 from gensim.models.word2vec import Word2Vec
+sys.path.append('/home/xavier/Documents/freesound-data/query flow') #this do not allow to 'run <script.py>' to run a script that is in the folder from ipython...
 
 
 LENGTH_BAR = 30 # length of the progress bar
@@ -299,8 +300,8 @@ class Client(freesound.FreesoundClient):
         count = 0
         while 1: # maybe use decorator to add this to all function that can fail sometimes...
             count += 1
-            if count > 10:
-                print 'sound ' + str(idToLoad) + ' not found (tried 10 times)'
+            if count > 4:
+                print 'sound ' + str(idToLoad) + ' not found (tried 4 times)'
                 return None
             try:
                 sound = self.get_sound(idToLoad)
@@ -308,10 +309,10 @@ class Client(freesound.FreesoundClient):
             except ValueError:
                 return None
             except URLError as e:
-                sleep(1)
+                sleep(0.5)
                 print e, 'id ' + str(idToLoad)
             except freesound.FreesoundException as e:
-                sleep(1)
+                sleep(0.5)
                 print e, 'id ' + str(idToLoad)
 
     def _save_analysis_json(self, analysis, idSound):

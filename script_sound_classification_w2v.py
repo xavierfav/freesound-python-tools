@@ -85,6 +85,7 @@ Bar.update(0)
 
 # Test different sizes of w2v
 for idx, size_w2v in enumerate(size_w2v_array):
+
     # update bar
     Bar.update(idx+1)
     
@@ -97,14 +98,14 @@ for idx, size_w2v in enumerate(size_w2v_array):
         # training word2vec models
         model_UrbanSound8K_CBOW = Word2Vec(X, size=size_w2v, window = 1000, min_count = 5, workers = 4, sg = 0)
         model_FreesoundDb_CBOW = Word2Vec(X_FreesoundDb, size=size_w2v, window = 1000, min_count = 5, workers = 4, sg = 0)
-        model_UrbanSound8K_SG = Word2Vec(X, size=size_w2v, window = 1000, min_count = 5, workers = 4, sg = 1)
-        model_FreesoundDb_SG = Word2Vec(X_FreesoundDb, size=size_w2v, window = 1000, min_count = 5, workers = 4, sg = 1)
+#        model_UrbanSound8K_SG = Word2Vec(X, size=size_w2v, window = 1000, min_count = 5, workers = 4, sg = 1)
+#        model_FreesoundDb_SG = Word2Vec(X_FreesoundDb, size=size_w2v, window = 1000, min_count = 5, workers = 4, sg = 1)
         
         w2v_UrbanSound8K_CBOW = {w: vec for w, vec in zip(model_UrbanSound8K_CBOW.index2word, model_UrbanSound8K_CBOW.syn0)}
         w2v_FreesoundDb_CBOW = {w: vec for w, vec in zip(model_FreesoundDb_CBOW.index2word, model_FreesoundDb_CBOW.syn0)}
-        w2v_UrbanSound8K_SG = {w: vec for w, vec in zip(model_UrbanSound8K_SG.index2word, model_UrbanSound8K_SG.syn0)}
-        w2v_FreesoundDb_SG = {w: vec for w, vec in zip(model_FreesoundDb_SG.index2word, model_FreesoundDb_SG.syn0)}        
-        
+#        w2v_UrbanSound8K_SG = {w: vec for w, vec in zip(model_UrbanSound8K_SG.index2word, model_UrbanSound8K_SG.syn0)}
+#        w2v_FreesoundDb_SG = {w: vec for w, vec in zip(model_FreesoundDb_SG.index2word, model_FreesoundDb_SG.syn0)}        
+
         # Model definition
         svc = Pipeline([("count_vectorizer", CountVectorizer(analyzer=lambda x: x)), ("linear svc", SVC(kernel="linear"))])
         svc_tfidf = Pipeline([("tfidf_vectorizer", TfidfVectorizer(analyzer=lambda x: x)), ("linear svc", SVC(kernel="linear"))])
@@ -116,19 +117,19 @@ for idx, size_w2v in enumerate(size_w2v_array):
                                 ("linear svc", SVC(kernel="linear"))])
         svc_w2v_tfidf_FreesoundDb_CBOW = Pipeline([("word2vec vectorizer", TfidfEmbeddingVectorizer(w2v_FreesoundDb_CBOW)), 
                                 ("linear svc", SVC(kernel="linear"))])
-        svc_w2v_UrbanSound8K_SG = Pipeline([("word2vec vectorizer", MeanEmbeddingVectorizer(w2v_UrbanSound8K_SG)), 
-                                ("linear svc", SVC(kernel="linear"))])
-        svc_w2v_tfidf_UrbanSound8K_SG = Pipeline([("word2vec vectorizer", TfidfEmbeddingVectorizer(w2v_UrbanSound8K_SG)), 
-                                ("linear svc", SVC(kernel="linear"))])
-        svc_w2v_FreesoundDb_SG = Pipeline([("word2vec vectorizer", MeanEmbeddingVectorizer(w2v_FreesoundDb_SG)), 
-                                ("linear svc", SVC(kernel="linear"))])
-        svc_w2v_tfidf_FreesoundDb_SG = Pipeline([("word2vec vectorizer", TfidfEmbeddingVectorizer(w2v_FreesoundDb_SG)), 
-                                ("linear svc", SVC(kernel="linear"))])
+#        svc_w2v_UrbanSound8K_SG = Pipeline([("word2vec vectorizer", MeanEmbeddingVectorizer(w2v_UrbanSound8K_SG)), 
+#                                ("linear svc", SVC(kernel="linear"))])
+#        svc_w2v_tfidf_UrbanSound8K_SG = Pipeline([("word2vec vectorizer", TfidfEmbeddingVectorizer(w2v_UrbanSound8K_SG)), 
+#                                ("linear svc", SVC(kernel="linear"))])
+#        svc_w2v_FreesoundDb_SG = Pipeline([("word2vec vectorizer", MeanEmbeddingVectorizer(w2v_FreesoundDb_SG)), 
+#                                ("linear svc", SVC(kernel="linear"))])
+#        svc_w2v_tfidf_FreesoundDb_SG = Pipeline([("word2vec vectorizer", TfidfEmbeddingVectorizer(w2v_FreesoundDb_SG)), 
+#                                ("linear svc", SVC(kernel="linear"))])
 #        svc_w2v_tfidf_UrbanSound8K_SG_concat_tfidf = Pipeline([("word2vec vectorizer", concat_TfidfEmbeddingVectorizer_tfidf(w2v_UrbanSound8K_SG)), ("linear svc", SVC(kernel="linear"))])        
 #        svc_w2v_tfidf_FreesoundDb_SG_concat_tfidf = Pipeline([("word2vec vectorizer", concat_TfidfEmbeddingVectorizer_tfidf(w2v_FreesoundDb_SG)), ("linear svc", SVC(kernel="linear"))])       
         
-        svc_w2v_tfidf_UrbanSound8K_SG_concat_tfidf = Pipeline([("word2vec vectorizer", FeatureUnion([('word2vec',TfidfEmbeddingVectorizer(w2v_UrbanSound8K_SG)),('tfifd', TfidfVectorizer(analyzer=lambda x: x))])), ("linear svc", SVC(kernel="linear"))])        
-        svc_w2v_tfidf_FreesoundDb_SG_concat_tfidf = Pipeline([("word2vec vectorizer", FeatureUnion([('w2v', TfidfEmbeddingVectorizer(w2v_FreesoundDb_SG)), ('tfifd', TfidfVectorizer(analyzer=lambda x: x))])), ("linear svc", SVC(kernel="linear"))])      
+        svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf = Pipeline([("word2vec vectorizer", FeatureUnion([('word2vec',TfidfEmbeddingVectorizer(w2v_UrbanSound8K_CBOW)),('tfifd', TfidfVectorizer(analyzer=lambda x: x))])), ("linear svc", SVC(kernel="linear"))])        
+        svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf = Pipeline([("word2vec vectorizer", FeatureUnion([('w2v', TfidfEmbeddingVectorizer(w2v_FreesoundDb_CBOW)), ('tfifd', TfidfVectorizer(analyzer=lambda x: x))])), ("linear svc", SVC(kernel="linear"))])      
         
         # benchmark all the things
         all_models = [
@@ -138,18 +139,18 @@ for idx, size_w2v in enumerate(size_w2v_array):
             ("svc_w2v_tfidf_UrbanSound8K_CBOW", svc_w2v_tfidf_UrbanSound8K_CBOW),
             ("svc_w2v_FreesoundDb_CBOW", svc_w2v_FreesoundDb_CBOW),
             ("svc_w2v_tfidf_FreesoundDb_CBOW", svc_w2v_tfidf_FreesoundDb_CBOW),
-            ("svc_w2v_UrbanSound8K_SG", svc_w2v_UrbanSound8K_SG),
-            ("svc_w2v_tfidf_UrbanSound8K_SG", svc_w2v_tfidf_UrbanSound8K_SG),
-            ("svc_w2v_FreesoundDb_SG", svc_w2v_FreesoundDb_SG),
-            ("svc_w2v_tfidf_FreesoundDb_SG", svc_w2v_tfidf_FreesoundDb_SG),
-            ("svc_w2v_tfidf_UrbanSound8K_SG_concat_tfidf", svc_w2v_tfidf_UrbanSound8K_SG_concat_tfidf),
-            ("svc_w2v_tfidf_FreesoundDb_SG_concat_tfidf", svc_w2v_tfidf_FreesoundDb_SG_concat_tfidf),
+#            ("svc_w2v_UrbanSound8K_SG", svc_w2v_UrbanSound8K_SG),
+#            ("svc_w2v_tfidf_UrbanSound8K_SG", svc_w2v_tfidf_UrbanSound8K_SG),
+#            ("svc_w2v_FreesoundDb_SG", svc_w2v_FreesoundDb_SG),
+#            ("svc_w2v_tfidf_FreesoundDb_SG", svc_w2v_tfidf_FreesoundDb_SG),
+            ("svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf", svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf),
+            ("svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf", svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf),
         ]
 
         scores = sorted([(name, cross_val_score(model, X, y, cv=5).mean()) 
                          for name, model in all_models], 
                         key=lambda (_, x): -x)
-	
+        
         result = ''
         result += 'size_w2vec = ' + str(size_w2v)
         result += '\n'

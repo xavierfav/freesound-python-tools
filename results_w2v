@@ -1,0 +1,480 @@
+size_w2vec = 10
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9550
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8878
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8819
+svc_w2v_UrbanSound8K_CBOW                      0.8112
+svc_w2v_FreesoundDb_CBOW                       0.7451
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.6650
+________________________________________________
+size_w2vec = 11
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9581
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8889
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8840
+svc_w2v_UrbanSound8K_CBOW                      0.8104
+svc_w2v_FreesoundDb_CBOW                       0.7606
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.6845
+________________________________________________
+size_w2vec = 12
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9589
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8842
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8778
+svc_w2v_UrbanSound8K_CBOW                      0.8072
+svc_w2v_FreesoundDb_CBOW                       0.7856
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.6914
+________________________________________________
+size_w2vec = 13
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9581
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8842
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8685
+svc_w2v_UrbanSound8K_CBOW                      0.8096
+svc_w2v_FreesoundDb_CBOW                       0.8011
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.7023
+________________________________________________
+size_w2vec = 14
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9581
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8897
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8608
+svc_w2v_UrbanSound8K_CBOW                      0.8049
+svc_w2v_FreesoundDb_CBOW                       0.8049
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.7279
+________________________________________________
+size_w2vec = 15
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9612
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.9053
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8445
+svc_w2v_FreesoundDb_CBOW                       0.8261
+svc_w2v_UrbanSound8K_CBOW                      0.8190
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.7529
+________________________________________________
+size_w2vec = 16
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9565
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.9091
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8312
+svc_w2v_UrbanSound8K_CBOW                      0.8221
+svc_w2v_FreesoundDb_CBOW                       0.8135
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.7241
+________________________________________________
+size_w2vec = 17
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9604
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.9068
+svc_w2v_FreesoundDb_CBOW                       0.8423
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8406
+svc_w2v_UrbanSound8K_CBOW                      0.8144
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.7491
+________________________________________________
+size_w2vec = 18
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9597
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.9177
+svc_w2v_FreesoundDb_CBOW                       0.8321
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8157
+svc_w2v_UrbanSound8K_CBOW                      0.8073
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.7389
+________________________________________________
+size_w2vec = 19
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9597
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.9014
+svc_w2v_FreesoundDb_CBOW                       0.8329
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8173
+svc_w2v_UrbanSound8K_CBOW                      0.8035
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.7498
+________________________________________________
+size_w2vec = 20
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9628
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.9069
+svc_w2v_FreesoundDb_CBOW                       0.8548
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8252
+svc_w2v_UrbanSound8K_CBOW                      0.8003
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.7857
+________________________________________________
+size_w2vec = 21
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9636
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.9060
+svc_w2v_FreesoundDb_CBOW                       0.8530
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8204
+svc_w2v_UrbanSound8K_CBOW                      0.7956
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.7638
+________________________________________________
+size_w2vec = 22
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9597
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.9177
+svc_w2v_FreesoundDb_CBOW                       0.8477
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8150
+svc_w2v_UrbanSound8K_CBOW                      0.7926
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.7614
+________________________________________________
+size_w2vec = 23
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9604
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.9083
+svc_w2v_FreesoundDb_CBOW                       0.8617
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8190
+svc_w2v_UrbanSound8K_CBOW                      0.7856
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.7726
+________________________________________________
+size_w2vec = 24
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9636
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.9045
+svc_w2v_FreesoundDb_CBOW                       0.8640
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8104
+svc_w2v_UrbanSound8K_CBOW                      0.7816
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.7755
+________________________________________________
+size_w2vec = 25
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9597
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.9006
+svc_w2v_FreesoundDb_CBOW                       0.8650
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8184
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.7920
+svc_w2v_UrbanSound8K_CBOW                      0.7723
+________________________________________________
+size_w2vec = 26
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9589
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.9029
+svc_w2v_FreesoundDb_CBOW                       0.8618
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8182
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.7879
+svc_w2v_UrbanSound8K_CBOW                      0.7762
+________________________________________________
+size_w2vec = 27
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9597
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.9053
+svc_w2v_FreesoundDb_CBOW                       0.8733
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8106
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8028
+svc_w2v_UrbanSound8K_CBOW                      0.7825
+________________________________________________
+size_w2vec = 28
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9620
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8959
+svc_w2v_FreesoundDb_CBOW                       0.8710
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8097
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.7981
+svc_w2v_UrbanSound8K_CBOW                      0.7692
+________________________________________________
+size_w2vec = 29
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9597
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8990
+svc_w2v_FreesoundDb_CBOW                       0.8766
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8129
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.7903
+svc_w2v_UrbanSound8K_CBOW                      0.7607
+________________________________________________
+size_w2vec = 30
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9620
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8975
+svc_w2v_FreesoundDb_CBOW                       0.8679
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8135
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.7903
+svc_w2v_UrbanSound8K_CBOW                      0.7793
+________________________________________________
+size_w2vec = 31
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9604
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.9022
+svc_w2v_FreesoundDb_CBOW                       0.8696
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8113
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8059
+svc_w2v_UrbanSound8K_CBOW                      0.7700
+________________________________________________
+size_w2vec = 32
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9589
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8967
+svc_w2v_FreesoundDb_CBOW                       0.8819
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8214
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8113
+svc_w2v_UrbanSound8K_CBOW                      0.7630
+________________________________________________
+size_w2vec = 33
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9597
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8998
+svc_w2v_FreesoundDb_CBOW                       0.8835
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8253
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8129
+svc_w2v_UrbanSound8K_CBOW                      0.7677
+________________________________________________
+size_w2vec = 34
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9573
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8905
+svc_w2v_FreesoundDb_CBOW                       0.8795
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8191
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8168
+svc_w2v_UrbanSound8K_CBOW                      0.7568
+________________________________________________
+size_w2vec = 35
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9620
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8991
+svc_w2v_FreesoundDb_CBOW                       0.8781
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8176
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8137
+svc_w2v_UrbanSound8K_CBOW                      0.7576
+________________________________________________
+size_w2vec = 36
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9597
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.9030
+svc_w2v_FreesoundDb_CBOW                       0.8812
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8185
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8138
+svc_w2v_UrbanSound8K_CBOW                      0.7607
+________________________________________________
+size_w2vec = 37
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9604
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8952
+svc_w2v_FreesoundDb_CBOW                       0.8820
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8254
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8200
+svc_w2v_UrbanSound8K_CBOW                      0.7545
+________________________________________________
+size_w2vec = 38
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9574
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8959
+svc_w2v_FreesoundDb_CBOW                       0.8873
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8253
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8253
+svc_w2v_UrbanSound8K_CBOW                      0.7638
+________________________________________________
+size_w2vec = 39
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9581
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8850
+svc_w2v_FreesoundDb_CBOW                       0.8812
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8222
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8207
+svc_w2v_UrbanSound8K_CBOW                      0.7498
+________________________________________________
+size_w2vec = 40
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9581
+svc_w2v_FreesoundDb_CBOW                       0.8943
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8773
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8276
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8253
+svc_w2v_UrbanSound8K_CBOW                      0.7428
+________________________________________________
+size_w2vec = 41
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9581
+svc_w2v_FreesoundDb_CBOW                       0.8819
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8819
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8260
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8205
+svc_w2v_UrbanSound8K_CBOW                      0.7482
+________________________________________________
+size_w2vec = 42
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9573
+svc_w2v_FreesoundDb_CBOW                       0.8843
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8789
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8213
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8213
+svc_w2v_UrbanSound8K_CBOW                      0.7468
+________________________________________________
+size_w2vec = 43
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9636
+svc_w2v_FreesoundDb_CBOW                       0.8998
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8883
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8239
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8239
+svc_w2v_UrbanSound8K_CBOW                      0.7468
+________________________________________________
+size_w2vec = 44
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9612
+svc_w2v_FreesoundDb_CBOW                       0.8897
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8843
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8291
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8275
+svc_w2v_UrbanSound8K_CBOW                      0.7413
+________________________________________________
+size_w2vec = 45
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9566
+svc_w2v_FreesoundDb_CBOW                       0.9015
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8741
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8323
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8300
+svc_w2v_UrbanSound8K_CBOW                      0.7459
+________________________________________________
+size_w2vec = 46
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9589
+svc_w2v_FreesoundDb_CBOW                       0.8868
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8733
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8386
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8386
+svc_w2v_UrbanSound8K_CBOW                      0.7436
+________________________________________________
+size_w2vec = 47
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9612
+svc_w2v_FreesoundDb_CBOW                       0.8975
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8819
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8285
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8261
+svc_w2v_UrbanSound8K_CBOW                      0.7452
+________________________________________________
+size_w2vec = 48
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9589
+svc_w2v_FreesoundDb_CBOW                       0.8974
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8796
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8509
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8493
+svc_w2v_UrbanSound8K_CBOW                      0.7381
+________________________________________________
+size_w2vec = 49
+model                                           score
+--------------------------------------------  -------
+svc                                            0.9860
+svc_tdidf                                      0.9860
+svc_w2v_tfidf_UrbanSound8K_CBOW_concat_tfidf   0.9566
+svc_w2v_FreesoundDb_CBOW                       0.9053
+svc_w2v_tfidf_UrbanSound8K_CBOW                0.8711
+svc_w2v_tfidf_FreesoundDb_CBOW                 0.8463
+svc_w2v_tfidf_FreesoundDb_CBOW_concat_tfidf    0.8463
+svc_w2v_UrbanSound8K_CBOW                      0.7397
+________________________________________________
