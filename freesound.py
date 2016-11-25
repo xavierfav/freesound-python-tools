@@ -25,7 +25,9 @@ import ijson
 
 class URIS():
     HOST = 'www.freesound.org'
+    #HOST = 'localhost:8000'
     BASE =  'https://'+HOST+'/apiv2'
+    #BASE = 'http://'+HOST+'/apiv2'
     TEXT_SEARCH = '/search/text/'
     CONTENT_SEARCH= '/search/content/'
     COMBINED_SEARCH = '/search/combined/'
