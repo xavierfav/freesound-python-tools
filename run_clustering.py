@@ -1,9 +1,9 @@
-from script_clustering import *
-c = manager.Client()
-b = c.load_basket_pickle('UrbanSound8K')
-cluster = Cluster(basket=b)
-cluster.compute_similarity_matrix()
-cluster.generate_graph()
-cluster.cluster_graph()
-cluster.create_cluster_baskets()
-cluster.display_clusters()
+if __name__ == '__main__':
+    query = sys.argv[1]
+    from knn_graph_clustering import *
+    c = manager.Client()
+    res = c.my_text_search(query=query)
+    b = c.new_basket()
+    b.load_sounds(res)
+    cluster = Cluster(basket=b)
+    cluster.run()
