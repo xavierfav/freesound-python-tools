@@ -30,7 +30,7 @@ import datetime
 import csv
 from sklearn import preprocessing
 from scipy import spatial
-from igraph import *
+import igraph as ig
 import scipy
 from sklearn.metrics.pairwise import cosine_similarity
 import re
@@ -40,7 +40,9 @@ from stop_words import get_stop_words
 from sklearn.feature_extraction.text import TfidfVectorizer
 from gensim.models.word2vec import Word2Vec
 sys.path.append('/home/xavier/Documents/freesound-data/query flow') #this do not allow to 'run <script.py>' to run a script that is in the folder from ipython...
-
+import pandas as pd
+import operator
+import networkx as nx
 
 LENGTH_BAR = 30 # length of the progress bar
 
@@ -214,9 +216,25 @@ class Client(freesound.FreesoundClient):
                 self._save_analysis_stats_json(analysis, idToLoad)
         else:
             analysis = self._load_analysis_stats_json(idToLoad)
-
         return analysis
-    
+	
+    def my_get_one_analysis_stats(self, idToLoad, descriptor):
+		settings = SettingsSingleton()
+		analysis = None
+		if idToLoad not in settings.local_analysis_stats:
+			allAnalysis = self._load_analysis_stats_freesound(idToLoad)
+			if settings.autoSave:
+				self._save_analysis_stats_json(allAnalysis, idToLoad)
+		else:
+			allAnalysis = self._load_analysis_stats_json(idToLoad)
+		if allAnalysis:
+			splitDescriptors = descriptor.split(".")
+			analysis = allAnalysis
+			for desc in splitDescriptors:
+				analysis = getattr(analysis, desc)
+		return analysis
+
+	
     def new_basket(self):
         """
         Create a new Basket
@@ -752,12 +770,26 @@ class Basket:
                 analysis = self.parent_client.my_get_analysis_stats(sound.id)
                 self.analysis_stats[i] = analysis
             else:
-                self.analysis_stats.append(None)
+                self.analysis_stats[i] = None # HERE CHANGED APPEND TO I, is it ok ?
                 # try:
                 #     self.analysis_stats.append(sound.get_analysis())
                 # except freesound.FreesoundException:
                 #     pass
 
+	# FUNCTION FOR ADDING STATS OF ONLY ONE ANALYSIS
+    def add_one_analysis_stats(self, descriptor):
+        nbSounds = len(self.sounds)
+        Bar = ProgressBar(nbSounds, LENGTH_BAR, 'Loading analysis stats')
+        Bar.update(0)
+        for i, sound in enumerate(self.sounds):
+            Bar.update(i + 1)
+            if sound is not None:
+                analysis = self.parent_client.my_get_one_analysis_stats(sound.id, descriptor)
+                self.analysis_stats[i] = analysis
+            else:
+                self.analysis_stats[i] = None
+		
+		
     def remove_analysis(self, descriptor):
         if descriptor in self.analysis_names:
             self.analysis.remove('all', descriptor)
@@ -843,7 +875,35 @@ class Basket:
         else:
             return feature_vector
         
+    def extract_one_descriptor_stats(self, scale=False):
+        """
+        A bit dirty. Maybe review de concept of analysis_stat and analysis objects
+        """
+        feature_vector = []
+        for analysis_stats in self.analysis_stats:
+            feature_vector_single_sound = []
+            if isinstance(getattr(analysis_stats,'mean'), list):
+                feature_vector_single_sound += getattr(analysis_stats,'mean') # take the mean
+                feature_vector_single_sound += getattr(analysis_stats,'dmean')
+                feature_vector_single_sound += getattr(analysis_stats,'dmean2')
+                feature_vector_single_sound += getattr(analysis_stats,'var') # var
+                feature_vector_single_sound += getattr(analysis_stats,'dvar')
+                feature_vector_single_sound += getattr(analysis_stats,'dvar2')                                
+            elif isinstance(getattr(analysis_stats,'mean'), float):
+                feature_vector_single_sound.append(getattr(analysis_stats,'mean')) # for non array
+                feature_vector_single_sound.append(getattr(analysis_stats,'dmean'))
+                feature_vector_single_sound.append(getattr(analysis_stats,'dmean2'))
+                feature_vector_single_sound.append(getattr(analysis_stats,'var'))
+                if k_ != 'barkbands_kurtosis': # this descriptor has variance = 0 => produce None values for dvar and dvar2
+                    feature_vector_single_sound.append(getattr(analysis_stats,'dvar'))
+                    feature_vector_single_sound.append(getattr(analysis_stats,'dvar2'))
+            feature_vector.append(feature_vector_single_sound)
+        if scale:  
+            return preprocessing.scale(feature_vector)
+        else:
+            return feature_vector
         
+    
     def load_sounds(self, results_pager, begin_idx=0, debugger=None):
         """
         Use this method to load all the sounds from a result pager int the basket
@@ -974,6 +1034,36 @@ class Basket:
         all_tags_occurrences.reverse()
         return all_tags_occurrences
 
+    def terms_occurrences(self, terms_sounds):
+        """
+        Input: list of list of terms for each sound
+        Returns a list of tuples (terms, nb_occurrences, [sound ids])
+        The list is sorted by number of occurrences of tags
+        Typicaly:   t = basket.preprocessing_tag_description()
+                    t_o = basket.terms_occurrences(t)
+                    nlp(basket, t_o) 
+                    WARNING: nlp check the tags only... !!!!!!!!!!
+        """
+        all_terms_occurrences = []
+        terms = list(set([item for sublist in terms_sounds for item in sublist]))
+        Bar = ProgressBar(len(terms), LENGTH_BAR, 'Thinking ...')
+        Bar.update(0)
+        for idx, term in enumerate(terms):
+            Bar.update(idx+1)
+            term_occurrences = self.term_occurrences(terms_sounds, term)
+            all_terms_occurrences.append((term, term_occurrences[0], term_occurrences[1]))
+        all_terms_occurrences = sorted(all_terms_occurrences, key=lambda oc: oc[1])
+        all_terms_occurrences.reverse()
+        return all_terms_occurrences
+
+    def term_occurrences(self, l, term):
+        ids = []
+        for i, sound_terms in enumerate(l):
+            if term in sound_terms:
+                ids.append(i)
+        number = len(ids)
+        return number, ids
+        
     def tag_occurrences(self, tag):
         ids = []
         for i, sound in enumerate(self.sounds):
@@ -1070,6 +1160,10 @@ class Basket:
         
         return [tag + description for tag, description in zip(all_tags, all_descriptions)]
     
+    def preprocessing_tag(self):
+        stemmer = PorterStemmer()
+        return [[stemmer.stem(tag.lower()) for tag in sound.tags] for sound in self.sounds]
+    
     def preprocessing_doc2vec(self):
         from gensim.models.doc2vec import TaggedDocument
         stemmer = PorterStemmer()
@@ -1155,7 +1249,8 @@ class Nlp:
         except:
             print 'Create fist the sound tag matrix using create_sound_tag_matrix method'
             
-    def return_similarity_matrix_tags(self, tag_something_matrix):
+    @staticmethod
+    def return_similarity_matrix_tags(tag_something_matrix):
         """
         Returns a tag similarity matrix computed with cosine distance from the given matrix
         MemoryError problem
@@ -1201,7 +1296,37 @@ class Nlp:
             tag_sound_matrix.append(sound_vect)
         return tag_sound_matrix    
     
+    @staticmethod
+    def nearest_neighbors(similarity_matrix, idx, k):
+        distances = []
+        for x in range(len(similarity_matrix)):
+            distances.append((x,similarity_matrix[idx][x]))
+        distances.sort(key=operator.itemgetter(1), reverse=True)
+        return [d[0] for d in distances[0:k]]
+    
     # __________________ GRAPH __________________ #
+    def create_knn_graph_igraph(self, similarity_matrix, k):
+        """ Returns a knn graph from a similarity matrix - igraph module """
+        np.fill_diagonal(similarity_matrix, 0) # for removing the 1 from diagonal
+        g = ig.Graph(directed=True)
+        g.add_vertices(len(similarity_matrix))
+        g.vs["b_id"] = range(len(similarity_matrix))
+        for idx in range(len(similarity_matrix)):
+            g.add_edges([(idx, i) for i in self.nearest_neighbors(similarity_matrix, idx, k)])
+            print idx, self.nearest_neighbors(similarity_matrix, idx, k)
+        return g
+    
+    def create_knn_graph(self, similarity_matrix, k):
+        """ Returns a knn graph from a similarity matrix - NetworkX module """
+        np.fill_diagonal(similarity_matrix, 0) # for removing the 1 from diagonal
+        g = nx.Graph()
+        g.add_nodes_from(range(len(similarity_matrix)))
+        for idx in range(len(similarity_matrix)):
+            g.add_edges_from([(idx, i) for i in self.nearest_neighbors(similarity_matrix, idx, k)])
+            print idx, self.nearest_neighbors(similarity_matrix, idx, k)
+        return g
+    
+    # OLD
     def create_tag_similarity_graph(self, tag_similarity_matrix, tag_names, threshold):
         """
         TODO : ADAPT IT FOR NetworkX package
@@ -1328,7 +1453,7 @@ class GraylogManager:
             last_idx = -1
         return last_idx
 
-    def _get_time(self):
+    def _get_time():
         timetup = gmtime()
         return strftime('%Y-%m-%dT%H:%M:%S.000Z', timetup)
 
@@ -1410,6 +1535,7 @@ class GraylogManager:
     @staticmethod
     def organize_all_queries(all_queries, progressbar=None):
         # there is a bug for the api queries in this fuction, return None in this case...
+        # TODO USE RE HERE AND MAKE IT SIMPLE .....
         if progressbar:
             Bar = ProgressBar(len(all_queries), LENGTH_BAR, 'Organizing queries')
             Bar.update(0)
@@ -1472,7 +1598,8 @@ class GraylogManager:
 
         all_queries = self.organize_all_queries(list_queries)
         self.fill_freesound_queries_db(all_queries)
-
+        self.sql.conn.commit()
+        
         Bar.update(1)
         for i in range(nb_pages - 1):
             list_queries, total_results = self.get_users_search_queries(from_date, to_date, (i + 1) * self.limit_item)
@@ -1491,6 +1618,20 @@ class GraylogManager:
         new_date = new_date[:-1] + new_date[-1] + 'Z'
         return new_date
 
+    def query_number_by_day(self, start_date = '2016-05-01', end_date = _get_time()):
+        """
+        Returns the number of queries per day
+        WARNING: THE PAGE CONDITION MAY FAIL FOR OLD LOGS
+        """
+        dates = np.array(pd.date_range(start = start_date, end = end_date , freq = 'D'))
+        Bar = ProgressBar(len(dates)-1, LENGTH_BAR, 'Requesting DB')
+        Bar.update(0)
+        count_per_days = []
+        for idx, d in enumerate(dates[:-1]):
+            Bar.update(idx+1)
+            count_per_days.append(self.sql.command("select count(*) from (select data from queries1 where timestamp > %s and timestamp < %s) as foo where data->>'page'='1'", (str(d), str(dates[idx+1]))))
+        return [int(ss[0][0]) for ss in count_per_days]
+    
     def query_profile_per_week(self):
         first_date = self._grayDate_to_psqlDate(self._get_date_first_query_in_db())
         last_date = self._grayDate_to_psqlDate(self._get_date_last_query_in_db())
