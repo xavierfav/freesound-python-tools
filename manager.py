@@ -1304,6 +1304,31 @@ class Nlp:
         distances.sort(key=operator.itemgetter(1), reverse=True)
         return [d[0] for d in distances[0:k]]
     
+    def knn(self, similarity_matrix, idx, k, freesound_ids):
+        distances = zip(freesound_ids, similarity_matrix[idx]) # zip together ids and similarity
+        distances.sort(key=operator.itemgetter(1), reverse=True)
+        return [d for d in distances[0:k]]
+    
+    def compute_knn_similarities(self, feature_matrix):
+        """ 
+        Created to compute all the 10000th most similar pairwise cosine similarity for FreesoundDB, text features
+        Takes to much memory. Store result in db during...
+        """
+        sql = SQLManager('freesound_similarities')
+        #dict_nn = {}
+        Bar = ProgressBar(feature_matrix.shape[0], LENGTH_BAR, 'Computing similarities')
+        Bar.update(0)
+        bar_k = 0
+        for k in range(int(np.ceil(feature_matrix.shape[0]/1000.0))):
+            pairwise = cosine_similarity(feature_matrix[1000*k:1000*(k+1)], feature_matrix)
+            for idx in range(pairwise.shape[0]):
+                #dict_nn[self.freesound_sound_id[idx+k*1000]] = self.knn(pairwise,idx,10000)
+                sql.cur.execute('insert into nearest2(freesound_id, data) values(%s, %s)', (self.freesound_sound_id[idx+k*1000], json.dumps(self.knn(pairwise,idx,10000, self.freesound_sound_id))))
+                bar_k +=1
+                Bar.update(bar_k)
+            sql.conn.commit()
+        #return dict_nn
+    
     # __________________ GRAPH __________________ #
     def create_knn_graph_igraph(self, similarity_matrix, k):
         """ Returns a knn graph from a similarity matrix - igraph module """
@@ -1426,7 +1451,7 @@ class GraylogManager:
         return graylog_auth.auth
 
     def _get_date_last_query_in_db(self):
-        last_date = self.sql.command('select timestamp from queries1 order by timestamp desc limit 1')
+        last_date = self.sql.command('select timestamp from queries3 order by id desc limit 1')
         try:
             last_date = last_date[0][0].isoformat()
             last_date = last_date[:-3]
@@ -1436,7 +1461,7 @@ class GraylogManager:
         return last_date
 
     def _get_date_first_query_in_db(self):
-        last_date = self.sql.command('select timestamp from queries1 order by timestamp asc limit 1')
+        last_date = self.sql.command('select timestamp from queries3 order by timestamp asc limit 1')
         try:
             last_date = last_date[0][0].isoformat()
             last_date = last_date[:-3]
@@ -1447,13 +1472,13 @@ class GraylogManager:
 
     def _get_last_index(self):
         try:
-            last_idx = last_date = self.sql.command('select id from queries1 order by id desc limit 1')
+            last_idx = last_date = self.sql.command('select id from queries3 order by id desc limit 1')
             last_idx = last_idx[0][0]
         except IndexError:
             last_idx = -1
         return last_idx
 
-    def _get_time():
+    def _get_time(self):
         timetup = gmtime()
         return strftime('%Y-%m-%dT%H:%M:%S.000Z', timetup)
 
@@ -1570,8 +1595,8 @@ class GraylogManager:
                 t = t.replace('Z', '')
                 idx = i + last_idx + 1
                 try:
-                    cur.execute('insert into queries1 values(%s, %s, %s, %s)',
-                            (idx, t, json.dumps(item[1]), item[2]))
+                    cur.execute('insert into queries3(timestamp, data, api) values(%s, %s, %s)',
+                            (t, json.dumps(item[1]), item[2]))
                 except Exception as e:
                     print e
                     self.restart()
@@ -1618,18 +1643,20 @@ class GraylogManager:
         new_date = new_date[:-1] + new_date[-1] + 'Z'
         return new_date
 
-    def query_number_by_day(self, start_date = '2016-05-01', end_date = _get_time()):
+    def query_number_by_day(self, start_date = '2016-05-01', end_date = None):
         """
         Returns the number of queries per day
         WARNING: THE PAGE CONDITION MAY FAIL FOR OLD LOGS
         """
+        if end_date == None:
+            end_date = self._get_time()
         dates = np.array(pd.date_range(start = start_date, end = end_date , freq = 'D'))
         Bar = ProgressBar(len(dates)-1, LENGTH_BAR, 'Requesting DB')
         Bar.update(0)
         count_per_days = []
         for idx, d in enumerate(dates[:-1]):
             Bar.update(idx+1)
-            count_per_days.append(self.sql.command("select count(*) from (select data from queries1 where timestamp > %s and timestamp < %s) as foo where data->>'page'='1'", (str(d), str(dates[idx+1]))))
+            count_per_days.append(self.sql.command("select count(*) from (select data from queries3 where timestamp > %s and timestamp < %s) as foo where data->>'page'='1'", (str(d), str(dates[idx+1]))))
         return [int(ss[0][0]) for ss in count_per_days]
     
     def query_profile_per_week(self):
@@ -1646,7 +1673,7 @@ class GraylogManager:
                 list_weeks.append(str(int(first_year[:4]) + i) + '-W' + str(j+1))
         nb_query_per_week = []
         for i in range(len(list_weeks)-1):
-            count = self.sql.command('select count(*) from queries1 where timestamp > %s and timestamp < %s',
+            count = self.sql.command('select count(*) from queries3 where timestamp > %s and timestamp < %s',
                         (datetime.datetime.strptime(list_weeks[i] + '-0', "%Y-W%W-%w"),
                          datetime.datetime.strptime(list_weeks[i+1] + '-0', "%Y-W%W-%w")))
             nb_query_per_week.append(int(count[0][0]))

@@ -8,6 +8,8 @@ import networkx as nx
 import numpy as np
 import operator
 import sys, os
+import matplotlib.pyplot as plt
+from math import log10
 
 # Disable print
 def blockPrint():
@@ -29,9 +31,7 @@ class Cluster:
     basket : manager.Basket
         a basket holding the sound collection to cluster
     k_nn : int
-        the parameter of the k nearest neighbour for graph generation. Default to 50
-    feature_type : 'text' or 'acoustic'
-        the type of features used for computing similarity between sounds. 
+        the parameter of the k nearest neighbour for graph generation. Default to 20
       
     Examples
     --------
@@ -42,7 +42,7 @@ class Cluster:
     cluster.run()
     
     """
-    def __init__(self, name='Cluster Object', basket=None, k_nn=50):
+    def __init__(self, name='Cluster Object', basket=None, k_nn=20):
         self.name = name
         self.basket = basket
         self.k_nn = k_nn
@@ -52,19 +52,30 @@ class Cluster:
         self.text_features = None
         self.text_similarity_matrix = None
         self.graph = None
+        self.graph_knn = None
         self.nb_clusters = None
         self.ids_in_clusters = None
     
-    def run(self):
+    def run(self, k_nn=None):
         """Run all the steps for generating cluster (by default with text features)"""
-        self.compute_similarity_matrix()
-        self.generate_graph()
+        if k_nn:
+            self.k_nn = k_nn
+        if not(isinstance(self.text_similarity_matrix, np.ndarray)) and not(isinstance(self.text_similarity_matrix), np.ndarray): # do not calculate again the similarity matrix if it is already done
+            self.compute_similarity_matrix()
+        if not(self.graph_knn == self.k_nn): # do not generate graph it is already done with the same k_nn parameter
+            self.generate_graph()
         self.cluster_graph()
         self.create_cluster_baskets()
         self.display_clusters()
+        if self.basket.clas: # some baskets have a clas attribute where are stored labels for each sound instance
+            self.evaluate()
     
     # __________________ FEATURE __________________ #
     def compute_similarity_matrix(self, basket=None, feature_type='text'):
+        """
+        feature_type : 'text' or 'acoustic'
+        the type of features used for computing similarity between sounds. 
+        """
         self.feature_type  = feature_type
         basket = basket or self.basket
         if basket == None:
@@ -98,13 +109,14 @@ class Cluster:
     def extract_acoustic_features(self, basket=None):
         """Extract acoustic features"""
         basket = basket or self.basket
-        basket.analysis_stats = [None] * len(b) # is case of the basket is old, now analysis_stats contains None values initialy
+        basket.analysis_stats = [None] * len(self.basket) # is case of the basket is old, now analysis_stats contains None values initialy
         basket.add_analysis_stats()
         basket.remove_sounds_with_no_analysis()
         self.acoustic_features = basket.extract_descriptor_stats(scale=True) # list of all descriptors stats for each sound in the basket
     
     def create_similarity_matrix_acoustic(self, features=None):
-        features = features or self.acoustic_features
+        if features == None:
+            features = self.text_features
         if features == None:
             print 'You must provide the acoustic features as argument or run extract_acoustic_features() first'
         else:
@@ -119,10 +131,11 @@ class Cluster:
         if similarity_matrix == None:
             if self.feature_type == 'text':
                 similarity_matrix = self.text_similarity_matrix
-            elif self.features_type == 'acoustic':
+            elif self.feature_type == 'acoustic':
                 similarity_matrix = self.acoustic_similarity_matrix
         self.graph = self.create_knn_graph(similarity_matrix, k_nn)
         enablePrint()
+        self.graph_knn = k_nn #save the k_nn parameters
         print '\n >>> Graph Generated <<< '
         
     def cluster_graph(self, graph=None):
@@ -183,8 +196,67 @@ class Cluster:
         for i in range(len(self.ids_in_clusters)):
                 print_basket(self.cluster_baskets, normalized_tags_occurrences, i, 10)
 
-                
-                
+    def plot(self):
+        nx.draw(self.graph)
+        plt.show()
+
+    def evaluate(self):
+        # the basket needs the hidden clusters information
+        # basket.clas = [clas_sound_1, clas_sound_2, ...]
+        all_clusters, all_hidden_clusters = construct(self, self.basket)
+        self.score = homogeneity(all_clusters, all_hidden_clusters)
+        print '\n\n' 
+        print 'Homogeneity = %s, k_nn = %s' %(self.score,self.k_nn)
+        
+        
+# __________________ EVALUATION __________________ #
+def construct(cluster, b):
+    all_clusters = cluster.ids_in_clusters
+    all_hidden_clusters = []
+    for cl in range(max(flat_list(b.clas))+1): 
+        clust = []
+        for idx, c in enumerate(b.clas):
+            if int(c) == cl:
+                clust.append(idx)
+        all_hidden_clusters.append(clust)
+    return all_clusters, all_hidden_clusters
+
+def my_log(value):
+    if value == 0:
+        return 0
+    else:
+        return log10(value)
+
+def purity(cluster, all_hidden_clusters):
+    """ Calculate the purity of a cluster """
+    purity = 0.
+    for hidden_cluster in all_hidden_clusters:
+        proba = prob(cluster, hidden_cluster)
+        purity -= proba*my_log(proba)
+    return purity
+
+def prob(cluster, hidden_cluster):
+    """ Calculate the probability of hidden_cluster knowing cluster """
+    return len(intersec(cluster, hidden_cluster))/float(len(cluster))
+
+def intersec(list1, list2):
+    """ Intersection of two lists """
+    return list(set(list1).intersection(set(list2)))
+
+def flat_list(l):
+    """ Convert a nested list to a flat list """
+    return [item for sublist in l for item in sublist]
+    
+def homogeneity(all_clusters, all_hidden_clusters):
+    """ Caculate the homogeneity of the found clusters with respect to the hidden clusters. Based on Entropy measure """
+    total = 0.
+    for cluster in all_clusters:
+        total += len(cluster) * purity(cluster, all_hidden_clusters)
+    total = total / (log10(len(all_hidden_clusters)) * len(flat_list(all_clusters)))
+    total = 1. - total
+    return total
+    
+
 ##________________________________________________#                
 ## __________________ OLD CODE __________________ #
 #

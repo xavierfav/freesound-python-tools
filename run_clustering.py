@@ -1,4 +1,5 @@
 if __name__ == '__main__':
+    import sys
     query = sys.argv[1]
     from knn_graph_clustering import *
     c = manager.Client()
@@ -7,3 +8,4 @@ if __name__ == '__main__':
     b.load_sounds(res)
     cluster = Cluster(basket=b)
     cluster.run()
+    cluster.plot()
