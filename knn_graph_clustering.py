@@ -60,7 +60,7 @@ class Cluster:
         """Run all the steps for generating cluster (by default with text features)"""
         if k_nn:
             self.k_nn = k_nn
-        if not(isinstance(self.text_similarity_matrix, np.ndarray)) and not(isinstance(self.text_similarity_matrix), np.ndarray): # do not calculate again the similarity matrix if it is already done
+        if not(isinstance(self.text_similarity_matrix, np.ndarray)) and not(isinstance(self.text_similarity_matrix, np.ndarray)): # do not calculate again the similarity matrix if it is already done
             self.compute_similarity_matrix()
         if not(self.graph_knn == self.k_nn): # do not generate graph it is already done with the same k_nn parameter
             self.generate_graph()
@@ -140,10 +140,10 @@ class Cluster:
         
     def cluster_graph(self, graph=None):
         graph = graph or self.graph
-        classes = com.best_partition(graph)
-        self.nb_clusters = max(classes.values()) + 1
+        self.classes = com.best_partition(graph)
+        self.nb_clusters = max(self.classes.values()) + 1
         #dendrogram = com.generate_dendrogram(graph)
-        self.ids_in_clusters = [[e for e in classes.keys() if classes[e]==cl] for cl in range(self.nb_clusters)]
+        self.ids_in_clusters = [[e for e in self.classes.keys() if self.classes[e]==cl] for cl in range(self.nb_clusters)]
         print '\n >>> Graph Clustered <<<\n Found %d clusters'%self.nb_clusters
         
     @staticmethod
@@ -196,9 +196,12 @@ class Cluster:
         for i in range(len(self.ids_in_clusters)):
                 print_basket(self.cluster_baskets, normalized_tags_occurrences, i, 10)
 
+    def get_labels(self):
+        return [self.classes[k] for k in range(len(self.classes.keys()))]
+
     def plot(self):
-        nx.draw(self.graph)
-        plt.show()
+        nx.draw_spring(self.graph, cmap=plt.get_cmap('jet'),
+                       node_color=self.get_labels(), node_size=100, with_labels=False)
 
     def evaluate(self):
         # the basket needs the hidden clusters information
@@ -213,7 +216,7 @@ class Cluster:
 def construct(cluster, b):
     all_clusters = cluster.ids_in_clusters
     all_hidden_clusters = []
-    for cl in range(max(flat_list(b.clas))+1): 
+    for cl in range(int(max(flat_list(b.clas)))+1): 
         clust = []
         for idx, c in enumerate(b.clas):
             if int(c) == cl:

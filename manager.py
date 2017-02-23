@@ -1328,7 +1328,35 @@ class Nlp:
                 Bar.update(bar_k)
             sql.conn.commit()
         #return dict_nn
-    
+        
+    def create_graph_from_nearest(self):
+        k_nn = 100
+        sql = SQLManager('freesound_similarities')
+        g = nx.Graph()
+        fs_ids = [r[0] for r in sql.command('select freesound_id from nearest2 order by freesound_id asc')]
+        nb_sound = len(fs_ids)
+        Bar = ProgressBar(nb_sound, LENGTH_BAR, 'Creating Graph')
+        Bar.update(0)
+        g.add_nodes_from(fs_ids)
+        for i, fs_id in enumerate(fs_ids):
+            Bar.update(i+1)
+            g.add_edges_from([(fs_id, r[0]) for r in sql.command('select data from nearest2 where freesound_id = %s', (str(fs_id),))[0][0]][:k_nn])
+        return g
+
+    def create_graph_text_file(self):
+        k_nn = 100
+        sql = SQLManager('freesound_similarities')
+        fs_ids = [r[0] for r in sql.command('select freesound_id from nearest2 order by freesound_id asc')]
+        nb_sound = len(fs_ids)
+        f = open('graph.txt', 'w')
+        Bar = ProgressBar(nb_sound, LENGTH_BAR, 'Generating text file')
+        Bar.update(0)
+        for i, fs_id in enumerate(fs_ids):
+            Bar.update(i+1)
+            list_edges = ''.join([str(str(fs_id) + ' ' + str(r[0]) + '\n') for r in sql.command('select data from nearest2 where freesound_id = %s', (str(fs_id),))[0][0]][:k_nn])
+            f.write(list_edges)
+        f.close()
+        
     # __________________ GRAPH __________________ #
     def create_knn_graph_igraph(self, similarity_matrix, k):
         """ Returns a knn graph from a similarity matrix - igraph module """
