@@ -700,6 +700,8 @@ class Basket:
                 del self.analysis_stats[i]
             except IndexError:
                 pass
+            if hasattr(self, 'clas'):
+                del self.clas[i]
             for descriptor in self.analysis_names:
                 self.analysis.remove(i, descriptor)
 
@@ -1017,6 +1019,32 @@ class Basket:
     # __________________________ Language tools _____________________________#
     # TODO: CREATE A CLASS FOR THIS TOOLS, AND SEPARATE FROM BASKET 
     
+    def text_preprocessing(self):
+        stemmer = PorterStemmer()
+        for idx, s in enumerate(self.sounds):
+            self.sounds[idx].tags = [stemmer.stem(t.lower()) for t in s.tags]
+
+    def return_tags_occurrences(self):
+        #tags = self.tags_extract_all()
+        tags = list(set(flat_list([sound.tags for sound in self.sounds])))
+        #default_value = [0, []]
+        tags_occurrences = {key:[0, []] for key in tags}
+        Bar = ProgressBar(len(tags), LENGTH_BAR, 'Counting')
+        Bar.update(0)
+        for idx, sound in enumerate(self.sounds):
+            Bar.update(idx+1)
+            for tag in sound.tags:
+                tags_occurrences[tag][0] += 1
+                tags_occurrences[tag][1].append(sound.id)
+        # putting it in the old format for compatibility with other methods:  
+        #list of tuples (tag, nb_occurrences, [sound ids])
+        all_tags_occurrences = []
+        for t in tags_occurrences.keys():
+            all_tags_occurrences.append((t, tags_occurrences[t][0], tags_occurrences[t][1]))
+        all_tags_occurrences = sorted(all_tags_occurrences, key=lambda oc: oc[1])
+        all_tags_occurrences.reverse()
+        return all_tags_occurrences        
+        
     def tags_occurrences(self):
         """
         Returns a list of tuples (tag, nb_occurrences, [sound ids])
@@ -1234,12 +1262,16 @@ class Nlp:
         """
         Bar = ProgressBar(self.nb_sound, LENGTH_BAR, 'Creating matrix...')
         Bar.update(0)
-        self.sound_tag_matrix = scipy.sparse.lil_matrix((self.nb_sound,self.nb_tag), dtype=int)
+        self.sound_tag_matrix = scipy.sparse.lil_matrix((self.nb_sound,self.nb_tag), dtype=float)
         for idx_sound, tags in enumerate(self.sound_tags):
             Bar.update(idx_sound+1)
             for tag in tags:
-                self.sound_tag_matrix[idx_sound, self.inverted_tag_index[tag]] = 1
-    
+                try:
+                    self.sound_tag_matrix[idx_sound, self.inverted_tag_index[tag]] = 1
+                except KeyError:
+                    pass
+                    
+                    
     def return_tag_cooccurrences_matrix(self):
         """
         Returns the tag to tag cooccurrences matrix by doing A_transpose * A where A is the sound to tag matrix occurrences
@@ -1290,7 +1322,7 @@ class Nlp:
         """
         tag_sound_matrix = []
         for tag in tags_occurrences:
-            sound_vect = [0] * len(self.nb_sounds)
+            sound_vect = [0] * len(self.nb_sound)
             for sound_id_in_basket in tag[2]:
                 sound_vect[sound_id_in_basket] = 1
             tag_sound_matrix.append(sound_vect)
@@ -1344,6 +1376,7 @@ class Nlp:
         return g
 
     def create_graph_text_file(self):
+        # pb with idx! gen_louvain needs idx in range
         k_nn = 100
         sql = SQLManager('freesound_similarities')
         fs_ids = [r[0] for r in sql.command('select freesound_id from nearest2 order by freesound_id asc')]
@@ -1356,6 +1389,25 @@ class Nlp:
             list_edges = ''.join([str(str(fs_id) + ' ' + str(r[0]) + '\n') for r in sql.command('select data from nearest2 where freesound_id = %s', (str(fs_id),))[0][0]][:k_nn])
             f.write(list_edges)
         f.close()
+        
+    def create_weighted_graph_text_file(self):
+        threshold = 0.0
+        k_nn = 5000
+        sql = SQLManager('freesound_similarities')
+        fs_ids = [r[0] for r in sql.command('select freesound_id from nearest2 order by freesound_id asc')]
+        fs_id_to_id = {}
+        for idx,i in enumerate(fs_ids):
+            fs_id_to_id[i]=idx
+        nb_sound = len(fs_ids)
+        f = open('graph.txt', 'w')
+        Bar = ProgressBar(nb_sound, LENGTH_BAR, 'Generating text file')
+        Bar.update(0)
+        for i, fs_id in enumerate(fs_ids):
+            Bar.update(i+1)
+            list_edges = ''.join([str(str(fs_id_to_id[fs_id]) + ' ' + str(fs_id_to_id[r[0]]) + ' ' + str(r[1]) + '\n') for r in sql.command('select data from nearest2 where freesound_id = %s', (str(fs_id),))[0][0] if r[1]>threshold][:k_nn])
+            f.write(list_edges)
+        f.close() 
+        
         
     # __________________ GRAPH __________________ #
     def create_knn_graph_igraph(self, similarity_matrix, k):
@@ -1735,7 +1787,13 @@ class DictObject:
             if isinstance(v, dict):
                 self.__dict__[k] = DictObject(v)
 
-
+def flat_list(l):
+    """ Convert a nested list to a flat list """
+    try:
+        return [item for sublist in l for item in sublist]
+    except:
+        return l
+    
 class ProgressBar:
     """
     Progress bar

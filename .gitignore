@@ -17,3 +17,4 @@ update_query_logs_db.py
 .brackets.json
 tag_sim/
 results/
+/venv

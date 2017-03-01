@@ -10,6 +10,11 @@ import operator
 import sys, os
 import matplotlib.pyplot as plt
 from math import log10
+import pylab
+from sklearn import metrics
+from sklearn.metrics import normalized_mutual_info_score, homogeneity_score, f1_score
+import pickle
+import matplotlib.patches as mpatches
 
 # Disable print
 def blockPrint():
@@ -19,7 +24,11 @@ def blockPrint():
 def enablePrint():
     sys.stdout = sys.__stdout__
 
-    
+text_features = pickle.load(open('text_features_FS.pkl', 'rb'))
+#text_features = pickle.load(open('text_features_US8K_ESC50.pkl', 'rb')) 
+
+
+
 class Cluster:
     """
     Compute the clusters with the knn-graph based clustering using Louvain aglorithm.
@@ -56,24 +65,32 @@ class Cluster:
         self.nb_clusters = None
         self.ids_in_clusters = None
     
-    def run(self, k_nn=None):
+    def run(self, k_nn=None, feature='text'):
         """Run all the steps for generating cluster (by default with text features)"""
+        self.graph = None
+        self.graph_knn = None
+        self.nb_clusters = None
+        self.ids_in_clusters = None
+        
         if k_nn:
             self.k_nn = k_nn
-        if not(isinstance(self.text_similarity_matrix, np.ndarray)) and not(isinstance(self.text_similarity_matrix, np.ndarray)): # do not calculate again the similarity matrix if it is already done
-            self.compute_similarity_matrix()
+            
+        if True:#not(isinstance(self.text_similarity_matrix, np.ndarray)) and not(isinstance(self.text_similarity_matrix, np.ndarray)): # do not calculate again the similarity matrix if it is already done
+            self.compute_similarity_matrix(feature_type=feature)
+            
         if not(self.graph_knn == self.k_nn): # do not generate graph it is already done with the same k_nn parameter
             self.generate_graph()
+            
         self.cluster_graph()
         self.create_cluster_baskets()
         self.display_clusters()
-        if self.basket.clas: # some baskets have a clas attribute where are stored labels for each sound instance
+        if hasattr(self.basket,'clas'): # some baskets have a clas attribute where are stored labels for each sound instance
             self.evaluate()
     
     # __________________ FEATURE __________________ #
     def compute_similarity_matrix(self, basket=None, feature_type='text'):
         """
-        feature_type : 'text' or 'acoustic'
+        feature_type : 'text', 'acoustic' or 'fusion'
         the type of features used for computing similarity between sounds. 
         """
         self.feature_type  = feature_type
@@ -81,14 +98,37 @@ class Cluster:
         if basket == None:
             print 'You must provide a basket as argument'
         else:
-            if feature_type == 'text':
-                self.extract_text_features(basket)
-                self.create_similarity_matrix_text(self.text_features)
-            elif feature_type == 'acoustic':
+            if feature_type == 'text' and not(isinstance(self.text_similarity_matrix, np.ndarray)):
+                #self.extract_text_features(basket)
+                features = [text_features[str(s.id)] for s in self.basket.sounds]
+                #self.create_similarity_matrix_text(self.text_features)
+                self.create_similarity_matrix_text(features)
+            elif feature_type == 'acoustic' and not(isinstance(self.acoustic_similarity_matrix, np.ndarray)):
                 self.extract_acoustic_features(basket)
                 self.create_similarity_matrix_acoustic(self.acoustic_features)
+            elif feature_type == 'fusion':
+                if not(isinstance(self.acoustic_similarity_matrix, np.ndarray)):
+                    self.extract_acoustic_features(basket)
+                    self.create_similarity_matrix_acoustic(self.acoustic_features)
+                if not(isinstance(self.text_similarity_matrix, np.ndarray)):
+                    features = [text_features[str(s.id)] for s in self.basket.sounds]
+                    self.create_similarity_matrix_text(features)
+                    #self.extract_text_features(basket)
+                    #self.create_similarity_matrix_text(self.text_features)
+                # different shapes in similarity matrix means that sounds with no analysis has been discarded in the acoustic on and not in the text one. For now recompute them starting with the acoustic to clean the basket. FUTURE: store id of missing aoustic features, and do not count it in the fusion...
+                if self.text_similarity_matrix.shape != self.acoustic_similarity_matrix.shape:
+                    self.extract_acoustic_features(basket)
+                    self.create_similarity_matrix_acoustic(self.acoustic_features)
+                    features = [text_features[str(s.id)] for s in self.basket.sounds]
+                    #self.extract_text_features(basket)
+                    #self.create_similarity_matrix_text(self.text_features)
+                    self.create_similarity_matrix_text(features)
+
             print '\n\n >>> Similarity Matrix Computed <<< '
-                
+    
+    def load_text_features(self):
+        return pickle.load(open('text_features_US8K_ESC50.pkl', 'rb'))
+    
     def extract_text_features(self, basket=None):
         basket = basket or self.basket
         t = basket.preprocessing_tag() #some stemming 
@@ -133,6 +173,8 @@ class Cluster:
                 similarity_matrix = self.text_similarity_matrix
             elif self.feature_type == 'acoustic':
                 similarity_matrix = self.acoustic_similarity_matrix
+            elif self.feature_type == 'fusion':
+                similarity_matrix = 0.8*self.text_similarity_matrix + 0.2*self.acoustic_similarity_matrix
         self.graph = self.create_knn_graph(similarity_matrix, k_nn)
         enablePrint()
         self.graph_knn = k_nn #save the k_nn parameters
@@ -156,12 +198,16 @@ class Cluster:
     
     def create_knn_graph(self, similarity_matrix, k):
         """ Returns a knn graph from a similarity matrix - NetworkX module """
+        threshold = 0.2
         np.fill_diagonal(similarity_matrix, 0) # for removing the 1 from diagonal
         g = nx.Graph()
         g.add_nodes_from(range(len(similarity_matrix)))
         for idx in range(len(similarity_matrix)):
-            g.add_edges_from([(idx, i) for i in self.nearest_neighbors(similarity_matrix, idx, k)])
-            print idx, self.nearest_neighbors(similarity_matrix, idx, k)
+            g.add_edges_from([(idx, i) for i in self.nearest_neighbors(similarity_matrix, idx, k) if similarity_matrix[idx][i] > threshold])
+            #g.add_weighted_edges_from([(idx, i[0], i[1]) for i in zip(range(len(similarity_matrix)), similarity_matrix[idx]) if                 i[0] != idx and i[1] > threshold])
+            #g.add_weighted_edges_from([(idx, i, similarity_matrix[idx][i]) for i in self.nearest_neighbors(similarity_matrix, idx, k) if similarity_matrix[idx][i] > threshold])
+            
+            #print idx, self.nearest_neighbors(similarity_matrix, idx, k)
         return g
     
     # __________________ DISPLAY __________________ #
@@ -197,21 +243,48 @@ class Cluster:
                 print_basket(self.cluster_baskets, normalized_tags_occurrences, i, 10)
 
     def get_labels(self):
-        return [self.classes[k] for k in range(len(self.classes.keys()))]
+        return [str(self.classes[k]) for k in range(len(self.classes.keys()))]
+    
+    def get_labels_true(self):
+        return [str(e) for e in self.basket.clas]
 
     def plot(self):
-        nx.draw_spring(self.graph, cmap=plt.get_cmap('jet'),
-                       node_color=self.get_labels(), node_size=100, with_labels=False)
+        # create colormap
+        self.color_clusters = plt.get_cmap('jet')
+        
+        # create legend
+        patches = []
+        for k in range(self.nb_clusters):
+            label = 'Cluster ' + str(k)
+            patches.append(mpatches.Patch(color=self.color_clusters(k/float(self.nb_clusters)), label=label))
+            
+        nx.draw_spring(self.graph, cmap=self.color_clusters, node_color=self.get_labels(), node_size=200, with_labels=True, alpha=0.7, width=0.3, font_size=8)
+        
+        plt.legend(handles=patches)
+        plt.show()
 
+        
     def evaluate(self):
         # the basket needs the hidden clusters information
         # basket.clas = [clas_sound_1, clas_sound_2, ...]
         all_clusters, all_hidden_clusters = construct(self, self.basket)
-        self.score = homogeneity(all_clusters, all_hidden_clusters)
+        self.my_homogeneity_score = homogeneity(all_clusters, all_hidden_clusters)
+        
+        labels_true = self.get_labels_true()
+        labels = self.get_labels()
+        self.homogeneity_score = homogeneity_score(labels_true, labels)
+        self.nmi_score = normalized_mutual_info_score(labels_true, labels)
+        self.f1_score = f1_score(labels_true, labels)
+        self.scores = [self.homogeneity_score, self.nmi_score, self.f1_score]
         print '\n\n' 
-        print 'Homogeneity = %s, k_nn = %s' %(self.score,self.k_nn)
+        print 'Homogeneity = %s, k_nn = %s' %(self.my_homogeneity_score,self.k_nn)
         
+        print 'Homogeneity = %s' %(self.homogeneity_score)
+        print 'NMI = %s' %(self.nmi_score)
+        print 'F1 = %s' %(self.f1_score)
         
+          
+    
 # __________________ EVALUATION __________________ #
 def construct(cluster, b):
     all_clusters = cluster.ids_in_clusters
@@ -248,7 +321,10 @@ def intersec(list1, list2):
 
 def flat_list(l):
     """ Convert a nested list to a flat list """
-    return [item for sublist in l for item in sublist]
+    try:
+        return [item for sublist in l for item in sublist]
+    except:
+        return l
     
 def homogeneity(all_clusters, all_hidden_clusters):
     """ Caculate the homogeneity of the found clusters with respect to the hidden clusters. Based on Entropy measure """

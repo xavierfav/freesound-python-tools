@@ -6,6 +6,6 @@ if __name__ == '__main__':
     res = c.my_text_search(query=query)
     b = c.new_basket()
     b.load_sounds(res)
-    cluster = Cluster(basket=b)
-    cluster.run()
+    cluster = Cluster(basket=b, k_nn=50)
+    cluster.run(feature='fusion')
     cluster.plot()
