@@ -30,7 +30,6 @@ import datetime
 import csv
 from sklearn import preprocessing
 from scipy import spatial
-import igraph as ig
 import scipy
 from sklearn.metrics.pairwise import cosine_similarity
 import re
@@ -1410,16 +1409,16 @@ class Nlp:
         
         
     # __________________ GRAPH __________________ #
-    def create_knn_graph_igraph(self, similarity_matrix, k):
-        """ Returns a knn graph from a similarity matrix - igraph module """
-        np.fill_diagonal(similarity_matrix, 0) # for removing the 1 from diagonal
-        g = ig.Graph(directed=True)
-        g.add_vertices(len(similarity_matrix))
-        g.vs["b_id"] = range(len(similarity_matrix))
-        for idx in range(len(similarity_matrix)):
-            g.add_edges([(idx, i) for i in self.nearest_neighbors(similarity_matrix, idx, k)])
-            print idx, self.nearest_neighbors(similarity_matrix, idx, k)
-        return g
+#    def create_knn_graph_igraph(self, similarity_matrix, k):
+#        """ Returns a knn graph from a similarity matrix - igraph module """
+#        np.fill_diagonal(similarity_matrix, 0) # for removing the 1 from diagonal
+#        g = ig.Graph(directed=True)
+#        g.add_vertices(len(similarity_matrix))
+#        g.vs["b_id"] = range(len(similarity_matrix))
+#        for idx in range(len(similarity_matrix)):
+#            g.add_edges([(idx, i) for i in self.nearest_neighbors(similarity_matrix, idx, k)])
+#            print idx, self.nearest_neighbors(similarity_matrix, idx, k)
+#        return g
     
     def create_knn_graph(self, similarity_matrix, k):
         """ Returns a knn graph from a similarity matrix - NetworkX module """
