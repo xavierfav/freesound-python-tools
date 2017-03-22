@@ -2,6 +2,7 @@ import manager
 from scipy.spatial.distance import pdist
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.decomposition import PCA
 import webbrowser
 import community.community_louvain as com
 import networkx as nx
@@ -9,6 +10,8 @@ import numpy as np
 import operator
 import sys, os
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
+import matplotlib.cm as cmx
 from math import log10
 import pylab
 from sklearn import metrics
@@ -24,7 +27,9 @@ def blockPrint():
 def enablePrint():
     sys.stdout = sys.__stdout__
 
-text_features = pickle.load(open('text_features_FS.pkl', 'rb'))
+#text_features = pickle.load(open('text_features_FS_lda50_10kTags.pkl', 'rb'))
+text_features = pickle.load(open('text_features_FS_lda200_allTags.pkl', 'rb'))
+#text_features = pickle.load(open('text_features_FS.pkl', 'rb'))
 #text_features = pickle.load(open('text_features_US8K_ESC50.pkl', 'rb')) 
 
 
@@ -64,6 +69,7 @@ class Cluster:
         self.graph_knn = None
         self.nb_clusters = None
         self.ids_in_clusters = None
+        self.sql = manager.SQLManager('freesound_similarities')
     
     def run(self, k_nn=None, feature='text'):
         """Run all the steps for generating cluster (by default with text features)"""
@@ -78,7 +84,7 @@ class Cluster:
         if True:#not(isinstance(self.text_similarity_matrix, np.ndarray)) and not(isinstance(self.text_similarity_matrix, np.ndarray)): # do not calculate again the similarity matrix if it is already done
             self.compute_similarity_matrix(feature_type=feature)
             
-        if not(self.graph_knn == self.k_nn): # do not generate graph it is already done with the same k_nn parameter
+        if True:#not(self.graph_knn == self.k_nn): # do not generate graph it is already done with the same k_nn parameter
             self.generate_graph()
             
         self.cluster_graph()
@@ -99,10 +105,10 @@ class Cluster:
             print 'You must provide a basket as argument'
         else:
             if feature_type == 'text' and not(isinstance(self.text_similarity_matrix, np.ndarray)):
-                #self.extract_text_features(basket)
-                features = [text_features[str(s.id)] for s in self.basket.sounds]
-                #self.create_similarity_matrix_text(self.text_features)
-                self.create_similarity_matrix_text(features)
+                self.extract_text_features(basket)
+                #features = [text_features[str(s.id)] for s in self.basket.sounds]
+                self.create_similarity_matrix_text(self.text_features)
+                #self.create_similarity_matrix_text(features)
             elif feature_type == 'acoustic' and not(isinstance(self.acoustic_similarity_matrix, np.ndarray)):
                 self.extract_acoustic_features(basket)
                 self.create_similarity_matrix_acoustic(self.acoustic_features)
@@ -111,18 +117,18 @@ class Cluster:
                     self.extract_acoustic_features(basket)
                     self.create_similarity_matrix_acoustic(self.acoustic_features)
                 if not(isinstance(self.text_similarity_matrix, np.ndarray)):
-                    features = [text_features[str(s.id)] for s in self.basket.sounds]
-                    self.create_similarity_matrix_text(features)
-                    #self.extract_text_features(basket)
-                    #self.create_similarity_matrix_text(self.text_features)
+                    #features = [text_features[str(s.id)] for s in self.basket.sounds]
+                    #self.create_similarity_matrix_text(features)
+                    self.extract_text_features(basket)
+                    self.create_similarity_matrix_text(self.text_features)
                 # different shapes in similarity matrix means that sounds with no analysis has been discarded in the acoustic on and not in the text one. For now recompute them starting with the acoustic to clean the basket. FUTURE: store id of missing aoustic features, and do not count it in the fusion...
                 if self.text_similarity_matrix.shape != self.acoustic_similarity_matrix.shape:
                     self.extract_acoustic_features(basket)
                     self.create_similarity_matrix_acoustic(self.acoustic_features)
-                    features = [text_features[str(s.id)] for s in self.basket.sounds]
-                    #self.extract_text_features(basket)
-                    #self.create_similarity_matrix_text(self.text_features)
-                    self.create_similarity_matrix_text(features)
+                    #features = [text_features[str(s.id)] for s in self.basket.sounds]
+                    self.extract_text_features(basket)
+                    self.create_similarity_matrix_text(self.text_features)
+                    #self.create_similarity_matrix_text(features)
 
             print '\n\n >>> Similarity Matrix Computed <<< '
     
@@ -131,12 +137,25 @@ class Cluster:
     
     def extract_text_features(self, basket=None):
         basket = basket or self.basket
-        t = basket.preprocessing_tag() #some stemming 
-        for idx, tt in enumerate(t):
-            basket.sounds[idx].tags = tt
-        nlp = manager.Nlp(basket) # counting terms...
-        nlp.create_sound_tag_matrix() # create the feature vectors
-        self.text_features = nlp.sound_tag_matrix
+#        t = basket.preprocessing_tag() #some stemming 
+#        for idx, tt in enumerate(t):
+#            basket.sounds[idx].tags = tt
+        #basket.text_preprocessing()
+        #t_o = basket.return_tags_occurrences()
+        #nlp = manager.Nlp(basket=basket, tags_occurrences=t_o) 
+        #nlp.create_sound_tag_matrix() # create the feature vectors
+        #self.text_features = nlp.sound_tag_matrix
+        #self.text_features = nlp.return_feature_lda(nlp.sound_tag_matrix, 20)
+        #print self.text_features
+        features = []
+        ids_to_remove = []
+        for idx, sound in enumerate(basket.sounds):
+            try:
+                features.append(text_features[str(sound.id)])
+            except:
+                ids_to_remove.append(idx)
+        basket.remove(ids_to_remove)
+        self.text_features = features
         
     def create_similarity_matrix_text(self, features=None):
         if features == None:
@@ -146,14 +165,38 @@ class Cluster:
         else:
             self.text_similarity_matrix = cosine_similarity(features)
         
+#    def extract_acoustic_features(self, basket=None):
+#        """ Extract acoustic features """
+#        basket = basket or self.basket
+#        basket.analysis_stats = [None] * len(self.basket) # is case of the basket is old, now analysis_stats contains None values initialy
+#        basket.add_analysis_stats()
+#        basket.remove_sounds_with_no_analysis()
+#        self.acoustic_features = basket.extract_descriptor_stats(scale=True) # list of all descriptors stats for each sound in the basket
+        
     def extract_acoustic_features(self, basket=None):
-        """Extract acoustic features"""
+        """ Extract acoustic features from database """
         basket = basket or self.basket
-        basket.analysis_stats = [None] * len(self.basket) # is case of the basket is old, now analysis_stats contains None values initialy
-        basket.add_analysis_stats()
-        basket.remove_sounds_with_no_analysis()
-        self.acoustic_features = basket.extract_descriptor_stats(scale=True) # list of all descriptors stats for each sound in the basket
+        features = self.get_acoustic_feature_db(basket)
+        ids_to_remove = []
+        basket.analysis_stats = [None] * len(basket) # is case of the basket is old, now analysis_stats contains None values initialy
+        for idx in range(len(basket)):
+            try:
+                basket.analysis_stats[idx] = features[basket.sounds[idx].id]
+            except:
+                ids_to_remove.append(idx)
+                basket.analysis_stats[idx] = None
+        basket.remove(ids_to_remove)
+        self.basket = basket
+        pca = PCA(n_components=100)
+        self.acoustic_features = pca.fit_transform([feature for feature in basket.analysis_stats])
     
+    def get_acoustic_feature_db(self, basket):
+        """ Request to db and return a dict with freesound ids and acoustic feature """
+        freesound_ids_tuple = tuple(s.id for s in basket.sounds)
+        result = self.sql.command('select freesound_id, data from acoustic where freesound_id in %s', (freesound_ids_tuple,))
+        return {result[i][0]:result[i][1] for i in range(len(result))}
+    
+        
     def create_similarity_matrix_acoustic(self, features=None):
         if features == None:
             features = self.text_features
@@ -198,14 +241,14 @@ class Cluster:
     
     def create_knn_graph(self, similarity_matrix, k):
         """ Returns a knn graph from a similarity matrix - NetworkX module """
-        threshold = 0.2
+        threshold = 0.1
         np.fill_diagonal(similarity_matrix, 0) # for removing the 1 from diagonal
         g = nx.Graph()
         g.add_nodes_from(range(len(similarity_matrix)))
         for idx in range(len(similarity_matrix)):
-            g.add_edges_from([(idx, i) for i in self.nearest_neighbors(similarity_matrix, idx, k) if similarity_matrix[idx][i] > threshold])
+            #g.add_edges_from([(idx, i) for i in self.nearest_neighbors(similarity_matrix, idx, k) if similarity_matrix[idx][i] > threshold])
             #g.add_weighted_edges_from([(idx, i[0], i[1]) for i in zip(range(len(similarity_matrix)), similarity_matrix[idx]) if                 i[0] != idx and i[1] > threshold])
-            #g.add_weighted_edges_from([(idx, i, similarity_matrix[idx][i]) for i in self.nearest_neighbors(similarity_matrix, idx, k) if similarity_matrix[idx][i] > threshold])
+            g.add_weighted_edges_from([(idx, i, similarity_matrix[idx][i]) for i in self.nearest_neighbors(similarity_matrix, idx, k) if similarity_matrix[idx][i] > threshold])
             
             #print idx, self.nearest_neighbors(similarity_matrix, idx, k)
         return g
@@ -224,7 +267,8 @@ class Cluster:
         normalized_tags_occurrences = []
         for idx, tag_occurrence in enumerate(tags_occurrences):
             normalized_tags_occurrences.append([(t_o[0], float(t_o[1])/len(self.cluster_baskets[idx].sounds)) for t_o in tag_occurrence])
-        
+        self.tags_oc = normalized_tags_occurrences        
+
         def print_basket(list_baskets, normalized_tags_occurrences, num_basket, max_tag = 20):
             """Print tag occurrences"""
             print '\n Cluster %s, containing %s sounds' % (num_basket, len(list_baskets[num_basket])) 
@@ -237,10 +281,10 @@ class Cluster:
         print '\n\n'
         print '\n ___________________________________________________________'
         print '|_________________________RESULTS___________________________|'
-        print '\n Cluster tags occurrences for Tag based method (normalized):'
+        print '\n Cluster tags occurrences (normalized):'
             
         for i in range(len(self.ids_in_clusters)):
-                print_basket(self.cluster_baskets, normalized_tags_occurrences, i, 10)
+                print_basket(self.cluster_baskets, normalized_tags_occurrences, i, 20)
 
     def get_labels(self):
         return [str(self.classes[k]) for k in range(len(self.classes.keys()))]
@@ -250,19 +294,36 @@ class Cluster:
 
     def plot(self):
         # create colormap
-        self.color_clusters = plt.get_cmap('jet')
+        #self.color_clusters = plt.get_cmap('jet')
+        cm = plt.get_cmap('jet')
+        cNorm  = colors.Normalize(vmin=0, vmax=self.nb_clusters-1)
+        scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cm)
+        self.color_clusters = cm
         
         # create legend
         patches = []
         for k in range(self.nb_clusters):
             label = 'Cluster ' + str(k)
-            patches.append(mpatches.Patch(color=self.color_clusters(k/float(self.nb_clusters)), label=label))
+            patches.append(mpatches.Patch(color=scalarMap.to_rgba(k), label=label))
             
         nx.draw_spring(self.graph, cmap=self.color_clusters, node_color=self.get_labels(), node_size=200, with_labels=True, alpha=0.7, width=0.3, font_size=8)
         
         plt.legend(handles=patches)
         plt.show()
 
+    def add_color_data(self):
+        cm = plt.get_cmap('jet')
+        cNorm  = colors.Normalize(vmin=0, vmax=self.nb_clusters-1)
+        scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cm)
+        labels = self.get_labels()
+        for idx in range(len(labels)):
+            self.graph.node[idx]['viz'] = self.get_dict_color(scalarMap.to_rgba(labels[idx]))
+            
+    def get_dict_color(self, tuple_rgba):
+        return {'color':{'r':int(tuple_rgba[0]*255), 'g':int(tuple_rgba[1]*255), 'b':int(tuple_rgba[2]*255), 'a':int(tuple_rgba[3]*255)}}
+        
+    def write_gexf(self, filename):
+        nx.write_gexf(self.graph, filename + '.gexf')
         
     def evaluate(self):
         # the basket needs the hidden clusters information

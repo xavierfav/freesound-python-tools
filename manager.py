@@ -5,7 +5,8 @@ Find the API documentation at http://www.freesound.org/docs/api/.
 
 This lib provides method for managing files and data with a local data storage
 """
-
+import sys
+sys.path.append('/home/xavier/Documents/dev/freesound-python/')
 import copy
 import freesound
 import os
@@ -17,7 +18,6 @@ import numpy as np
 from functools import reduce
 import cPickle
 from urllib2 import URLError
-import sys
 reload(sys)
 sys.setdefaultencoding("utf-8")
 import subprocess
@@ -42,6 +42,7 @@ sys.path.append('/home/xavier/Documents/freesound-data/query flow') #this do not
 import pandas as pd
 import operator
 import networkx as nx
+from sklearn.decomposition import LatentDirichletAllocation
 
 LENGTH_BAR = 30 # length of the progress bar
 
@@ -808,7 +809,10 @@ class Basket:
         Bar.update(0)
         # 1st iteration                              # maybe there is a better way to iterate through pages...
         for sound in results_pager:
-            self.push(sound, sound.analysis)
+            try:
+                self.push(sound, sound.analysis)
+            except AttributeError:
+                self.push(sound)
             numSound = numSound+1
             Bar.update(numSound+1)
 
@@ -830,7 +834,10 @@ class Basket:
                     sleep(1)
                     print exc_info
             for sound in results_pager:
-                self.push(sound, sound.analysis)
+                try:
+                    self.push(sound, sound.analysis)
+                except AttributeError:
+                    self.push(sound)
                 numSound = numSound+1
                 Bar.update(numSound+1)
             results_pager_last = results_pager
@@ -1018,17 +1025,35 @@ class Basket:
     # __________________________ Language tools _____________________________#
     # TODO: CREATE A CLASS FOR THIS TOOLS, AND SEPARATE FROM BASKET 
     
+    def tags_lower(self):
+        for idx, s in enumerate(self.sounds):
+            self.sounds[idx].tags = [t.lower() for t in s.tags]
+    
     def text_preprocessing(self):
         stemmer = PorterStemmer()
         for idx, s in enumerate(self.sounds):
             self.sounds[idx].tags = [stemmer.stem(t.lower()) for t in s.tags]
 
+    def return_tags_occurrences_dict(self):
+        #tags = self.tags_extract_all()
+        tags = list(set(flat_list([sound.tags for sound in self.sounds])))
+        #default_value = [0, []]
+        tags_occurrences = {key:[0, []] for key in tags}
+        Bar = ProgressBar(len(self.sounds), LENGTH_BAR, 'Counting')
+        Bar.update(0)
+        for idx, sound in enumerate(self.sounds):
+            Bar.update(idx+1)
+            for tag in sound.tags:
+                tags_occurrences[tag][0] += 1
+                tags_occurrences[tag][1].append(sound.id)
+        return tags_occurrences
+    
     def return_tags_occurrences(self):
         #tags = self.tags_extract_all()
         tags = list(set(flat_list([sound.tags for sound in self.sounds])))
         #default_value = [0, []]
         tags_occurrences = {key:[0, []] for key in tags}
-        Bar = ProgressBar(len(tags), LENGTH_BAR, 'Counting')
+        Bar = ProgressBar(len(self.sounds), LENGTH_BAR, 'Counting')
         Bar.update(0)
         for idx, sound in enumerate(self.sounds):
             Bar.update(idx+1)
@@ -1407,6 +1432,15 @@ class Nlp:
             f.write(list_edges)
         f.close() 
         
+    def return_lda_model(self, sound_tag_matrix, n_topics):
+        lda = LatentDirichletAllocation(n_topics=n_topics, max_iter=5,
+                                learning_method='online',
+                                learning_offset=50.,
+                                random_state=0,
+                                n_jobs=1)
+        lda.fit(sound_tag_matrix)
+        return lda
+        #return lda.transform(sound_tag_matrix)
         
     # __________________ GRAPH __________________ #
 #    def create_knn_graph_igraph(self, similarity_matrix, k):
@@ -1515,7 +1549,7 @@ class GraylogManager:
     def __init__(self):
         self.limit_item = 5000
         self.auth = self._get_auth()
-        self.url = 'http://logserver.mtg.upf.edu/graylog-api/'
+        self.url = 'http://logserver.mtg.upf.edu/graylog/api/'
         self.url_search_query = '/search/universal/absolute?query=query&' \
                                             '&limit=' + str(int(self.limit_item)) + '&sort=timestamp%3Aasc&fields=message'
         self.sql = SQLManager('freesound_queries')
@@ -1535,6 +1569,8 @@ class GraylogManager:
             last_date = last_date[0][0].isoformat()
             last_date = last_date[:-3]
             last_date = last_date[:-1] + str(int(last_date[-1])+1) + 'Z' # one milisec is added in order to not get the last query
+#            last_date = last_date[0][0].isoformat() 
+#            last_date = last_date[:-1] + str(int(last_date[-1])+1) + '.000Z'
         except IndexError:
             last_date = '2016-05-11T11:20:24.000Z'
         return last_date
@@ -1578,11 +1614,12 @@ class GraylogManager:
                 sleep(1)
         return r
 
-    def get_users_search_queries(self, from_date, to_date, offset=0):
+    def get_users_search_queries(self, from_date, to_date, offset=0, tot_results=None):
         u = self.url + self.url_search_query + '&offset=' + str(offset) + '&'\
                                 + 'from=' + str(from_date) + '&to=' \
                                 + str(to_date)
         r = self._request(u, self.auth)
+        #print u
 
         # some manipulation of the data (the dict given with the graylog api request
         #                                   is really nested, it makes it a bit dirty)
@@ -1593,7 +1630,12 @@ class GraylogManager:
                 print 'No JSON object could be decoded'
                 return [], 0
             
-            total_results = r['total_results']
+            try:
+                total_results = r['total_results']
+            except KeyError:
+                total_results = tot_results
+            
+            #print r
             r = r['messages']
             nb = len(r)
             list_queries = [(r[i]['message']['timestamp'],
@@ -1706,7 +1748,7 @@ class GraylogManager:
         
         Bar.update(1)
         for i in range(nb_pages - 1):
-            list_queries, total_results = self.get_users_search_queries(from_date, to_date, (i + 1) * self.limit_item)
+            list_queries, total_results = self.get_users_search_queries(from_date, to_date, (i + 1) * self.limit_item, tot_results = total_results)
             all_queries = self.organize_all_queries(list_queries)
             self.fill_freesound_queries_db(all_queries)
             self.sql.conn.commit()
