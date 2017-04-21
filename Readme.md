@@ -1,7 +1,7 @@
 manager.py
 ============
 
-A library over freesound.py that helps managing sounds, tags, analysis, ...
+A library over the official python client for the [Freesound](http://freesound.org) API that helps managing sounds, tags, analysis, ...
 
 The aim is to develop a tool that could help us using/analysing datas from freesound & local. Future work will focus on saving experiments with datas, such as classification.
 To work properly, you must have an unlimited access to freesound api requests.
