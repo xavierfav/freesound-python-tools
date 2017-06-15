@@ -1286,7 +1286,7 @@ class Nlp:
         """
         Bar = ProgressBar(self.nb_sound, LENGTH_BAR, 'Creating matrix...')
         Bar.update(0)
-        self.sound_tag_matrix = scipy.sparse.lil_matrix((self.nb_sound,self.nb_tag), dtype=float)
+        self.sound_tag_matrix = scipy.sparse.lil_matrix((self.nb_sound,self.nb_tag), dtype=int)
         for idx_sound, tags in enumerate(self.sound_tags):
             Bar.update(idx_sound+1)
             for tag in tags:
